@@ -326,7 +326,7 @@ def append_update_audit_log(action, details):
     Append one line to the JSONL audit log at the extension root.
     Each line is a standalone JSON object: { timestamp, action, ...details }
     """
-    log_path = Path(__file__).resolve().parents[1] / 'neo_update_audit.jsonl'
+    log_path = Path(__file__).resolve().parents[1] / 'ex_update_audit.jsonl'
     entry = {'timestamp': __import__('datetime').datetime.now().isoformat(), 'action': action, **details}
     try:
         with open(log_path, 'a', encoding='utf-8') as f:
@@ -1276,7 +1276,7 @@ def save_model_info(install_path, file_name, sub_folder, sha256=None, preview_ht
         except Exception as e:
             pass  # fall through to gl.json_info below
         _api.safe_json_save(api_info_path, version_data if version_data else gl.json_info)
-        print(f"[CivitAI Browser Neo] - API info saved to: {api_info_path}")
+        print(f"[CivitAI Browser Ex] - API info saved to: {api_info_path}")
 
 def find_model_version_by_sha256(api_response, sha256):
     """Find the specific model version that matches the given SHA256 hash"""
@@ -1993,8 +1993,8 @@ def file_scan(folders, tag_finish, ver_finish, installed_finish, preview_finish,
         
         # Step 3: Execute organization
         total_moves = len(organization_plan['moves'])
-        print(f"[CivitAI Browser Neo] Starting organization of {total_moves} files...")
-        print(f"[CivitAI Browser Neo] 💾 Backup ID: {backup_id}")
+        print(f"[CivitAI Browser Ex] Starting organization of {total_moves} files...")
+        print(f"[CivitAI Browser Ex] 💾 Backup ID: {backup_id}")
         
         result = execute_organization(organization_plan, progress)
         
@@ -2040,7 +2040,7 @@ def file_scan(folders, tag_finish, ver_finish, installed_finish, preview_finish,
             </div>
             '''
         
-        print(f"[CivitAI Browser Neo] {result['message']}")
+        print(f"[CivitAI Browser Ex] {result['message']}")
         gl.scan_files = False
         return (
             gr.update(value=result_html),
@@ -2234,7 +2234,7 @@ def _fetch_api_info_by_hash(file_path, api_info_file):
 
             # 1. Save fresh data as .api_info.json (overwrites any stale/wrong file)
             _api.safe_json_save(api_info_file, data)
-            print(f"[CivitAI Browser Neo] ✅ Fetched and saved .api_info.json for: {model_name}")
+            print(f"[CivitAI Browser Ex] ✅ Fetched and saved .api_info.json for: {model_name}")
 
             # 2. Also patch "sd version" in the .json sidecar with the correct raw value
             #    so the .json is also self-consistent and usable offline in the future
@@ -2377,12 +2377,12 @@ def get_model_info_for_organization(file_path):
             sd_version = content.get('sd version', '')
             if sd_version and sd_version.upper() != 'OTHER':
                 _debug_log(f"Offline fallback: using 'sd version'='{sd_version}' from .json")
-                print(f"[CivitAI Browser Neo] ⚠️ Using offline .json fallback for: {model_name} (API unavailable)")
+                print(f"[CivitAI Browser Ex] ⚠️ Using offline .json fallback for: {model_name} (API unavailable)")
                 return sd_version, model_name
         except Exception as e:
             _debug_log(f"Error reading .json fallback for {model_name}: {e}")
 
-    print(f"[CivitAI Browser Neo] ⚠️ Could not determine baseModel for: {model_name}")
+    print(f"[CivitAI Browser Ex] ⚠️ Could not determine baseModel for: {model_name}")
     return None, model_name
 
 def analyze_organization_plan(folders, progress=None):
@@ -2609,10 +2609,10 @@ def save_organization_backup(organization_plan):
             json.dump(backup_file_data, f, indent=2, ensure_ascii=False)
         
         gl.last_organization_backup = backup_data['timestamp']
-        print(f"[CivitAI Browser Neo] Backup saved: {backup_data['timestamp']}")
+        print(f"[CivitAI Browser Ex] Backup saved: {backup_data['timestamp']}")
         return backup_data['timestamp']
     except Exception as e:
-        print(f"[CivitAI Browser Neo] Failed to save backup: {e}")
+        print(f"[CivitAI Browser Ex] Failed to save backup: {e}")
         return None
 
 def get_last_organization_backup():
@@ -2661,7 +2661,7 @@ def execute_rollback(progress=None):
     moves_completed = 0
     errors = []
     
-    print(f"[CivitAI Browser Neo] Starting rollback of {total_moves} files...")
+    print(f"[CivitAI Browser Ex] Starting rollback of {total_moves} files...")
     
     for move_info in moves:
         if gl.cancel_status:
@@ -3060,11 +3060,11 @@ def fix_misplaced_files(plan_json, progress=gr.Progress() if queue else None):
             if os.path.exists(source_path) and not os.path.exists(target_path):
                 shutil.move(source_path, target_path)
                 _move_associated_files(source_path, target_path)
-            print(f"[CivitAI Browser Neo] ✓ Organized: {model_name} → {base_model}/")
+            print(f"[CivitAI Browser Ex] ✓ Organized: {model_name} → {base_model}/")
             completed += 1
         except Exception as e:
             errors.append(f"Failed to move {model_name}: {e}")
-            print(f"[CivitAI Browser Neo] ✗ Error moving {model_name}: {e}")
+            print(f"[CivitAI Browser Ex] ✗ Error moving {model_name}: {e}")
 
         # ── Yield progress every 25 files (and after the last one) ────────────
         if (i + 1) % 25 == 0 or i == total - 1:
@@ -3097,7 +3097,7 @@ def fix_misplaced_files(plan_json, progress=gr.Progress() if queue else None):
             </details>
         </div>'''
 
-    print(f"[CivitAI Browser Neo] fix_misplaced_files: moved {completed}/{total}, errors={len(errors)}")
+    print(f"[CivitAI Browser Ex] fix_misplaced_files: moved {completed}/{total}, errors={len(errors)}")
     yield gr.update(value=result_html), gr.update(visible=False), gr.update(visible=True), '{}'
 
 
@@ -3123,7 +3123,7 @@ def rollback_organization(progress=gr.Progress() if queue else None):
     if progress is not None:
         progress(0, desc=f"Starting rollback of {total_files} files...")
     
-    print(f"[CivitAI Browser Neo] Starting rollback (Backup: {timestamp})...")
+    print(f"[CivitAI Browser Ex] Starting rollback (Backup: {timestamp})...")
     
     result = execute_rollback(progress)
     
@@ -3166,7 +3166,7 @@ def rollback_organization(progress=gr.Progress() if queue else None):
         </div>
         '''
     
-    print(f"[CivitAI Browser Neo] {result['message']}")
+    print(f"[CivitAI Browser Ex] {result['message']}")
     return gr.update(value=result_html)
 
 def save_tag_finish():

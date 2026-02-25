@@ -1691,13 +1691,13 @@ def request_civit_api(api_url=None, skip_error_check=False):
 
             if dns_resolution_error and attempt < max_attempts:
                 wait_time = base_backoff_seconds * attempt
-                print(f"[CivitAI Browser Neo] - DNS resolution failed (attempt {attempt}/{max_attempts}). Retrying in {wait_time}s...")
+                print(f"[CivitAI Browser Ex] - DNS resolution failed (attempt {attempt}/{max_attempts}). Retrying in {wait_time}s...")
                 time.sleep(wait_time)
                 continue
 
-            print(f"[CivitAI Browser Neo] - Error: {e}")
+            print(f"[CivitAI Browser Ex] - Error: {e}")
             if dns_resolution_error:
-                print(f"[CivitAI Browser Neo] - DNS resolution failed (attempt {max_attempts}/{max_attempts}). No more retries.")
+                print(f"[CivitAI Browser Ex] - DNS resolution failed (attempt {max_attempts}/{max_attempts}). No more retries.")
                 return 'dns_error'
             return 'error'
 

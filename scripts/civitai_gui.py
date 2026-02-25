@@ -25,21 +25,21 @@ def saveSettings(ust, ct, pt, st, bf, cj, ol, hi, sn, es, ss, ts):
     config = cmd_opts.ui_config_file
 
     # Create a dictionary to map the settings to their respective variables
-    # NOTE: prefix must match the elem_id returned in on_ui_tabs() → 'civitai_interface_neo'
+    # NOTE: prefix must match the elem_id returned in on_ui_tabs() → 'civitai_interface_ex'
     settings_map = {
-        'civitai_interface_neo/Search type:/value': ust,
-        'civitai_interface_neo/Content type:/value': ct,
-        'civitai_interface_neo/Time period:/value': pt,
-        'civitai_interface_neo/Sort by:/value': st,
-        'civitai_interface_neo/Base model:/value': bf,
-        'civitai_interface_neo/Save info after download/value': cj,
-        'civitai_interface_neo/Divide cards by date/value': False,  # This is a toggle, so its state does not matter here
-        'civitai_interface_neo/Liked models only/value': ol,
-        'civitai_interface_neo/Hide installed models/value': hi,
-        'civitai_interface_neo/NSFW content/value': sn,
-        'civitai_interface_neo/Exact search/value': es,
-        'civitai_interface_neo/Tile size:/value': ss,
-        'civitai_interface_neo/Tile count:/value': ts
+        'civitai_interface_ex/Search type:/value': ust,
+        'civitai_interface_ex/Content type:/value': ct,
+        'civitai_interface_ex/Time period:/value': pt,
+        'civitai_interface_ex/Sort by:/value': st,
+        'civitai_interface_ex/Base model:/value': bf,
+        'civitai_interface_ex/Save info after download/value': cj,
+        'civitai_interface_ex/Divide cards by date/value': False,  # This is a toggle, so its state does not matter here
+        'civitai_interface_ex/Liked models only/value': ol,
+        'civitai_interface_ex/Hide installed models/value': hi,
+        'civitai_interface_ex/NSFW content/value': sn,
+        'civitai_interface_ex/Exact search/value': es,
+        'civitai_interface_ex/Tile size:/value': ss,
+        'civitai_interface_ex/Tile count:/value': ts
     }
 
     # Load the current contents of the config file into a dictionary
@@ -211,7 +211,7 @@ def get_base_models():
     ]
 
     if not isinstance(json_return, dict):
-        print("[CivitAI Browser Neo] - Couldn't fetch latest baseModel options, using default.")
+        print("[CivitAI Browser Ex] - Couldn't fetch latest baseModel options, using default.")
         return default_options
 
     if 'error' in json_return and 'message' in json_return['error']:
@@ -304,11 +304,11 @@ def on_ui_tabs():
                     with gr.Row(elem_id='save_set_box'):
                         save_settings = gr.Button(value='Save settings as default', elem_id='save_set_btn')
                 search_term = gr.Textbox(label='', placeholder='Enter model name, or paste a CivitAI link', elem_id='searchBox')
-                refresh = gr.Button(value='', elem_id=refreshbtn, icon='placeholder')
+                refresh = gr.Button(value='', elem_id=refreshbtn)
             with gr.Row(elem_id=header):
                 with gr.Row(elem_id='pageBox'):
                     get_prev_page = gr.Button(value='Prev page', interactive=False, elem_id='pageBtn1')
-                    page_slider = gr.Slider(label='Current page:', step=1, minimum=1, maximum=1, min_width=80, elem_id='pageSlider')
+                    page_slider = gr.Slider(label='Current page:', step=1, minimum=1, maximum=1, elem_id='pageSlider')
                     get_next_page = gr.Button(value='Next page', interactive=False, elem_id='pageBtn2')
                 with gr.Row(elem_id='pageBoxMobile'):
                     pass # Row used for button placement on mobile
@@ -330,9 +330,9 @@ def on_ui_tabs():
             with gr.Accordion(label='\U0001f464 Creator Management', open=False, elem_id='creatorMgmtBox'):
                 with gr.Row():
                     creator_name_txt = gr.Textbox(label='Creator:', interactive=False, max_lines=1, scale=3, elem_id='creator_name_display')
-                    btn_fav = gr.Button(value='\u2b50 Favorite', interactive=False, scale=1, min_width=110)
-                    btn_ban = gr.Button(value='\U0001f6ab Ban', interactive=False, scale=1, min_width=90)
-                    btn_clear = gr.Button(value='\u21ba Reset', interactive=False, scale=1, min_width=90)
+                    btn_fav = gr.Button(value='\u2b50 Favorite', interactive=False, scale=1)
+                    btn_ban = gr.Button(value='\U0001f6ab Ban', interactive=False, scale=1)
+                    btn_clear = gr.Button(value='\u21ba Reset', interactive=False, scale=1)
             with gr.Row():
                 list_html = gr.HTML(value='<div style="font-size: 24px; text-align: center; margin: 50px;">Click the search icon to load models.<br>Use the filter icon to filter results.</div>')
             with gr.Row():
@@ -350,7 +350,7 @@ def on_ui_tabs():
                 with gr.Column(scale=4):
                     with gr.Row():
                         trained_tags = gr.Textbox(label='Trained tags (if any):', value=None, interactive=False, lines=1, scale=6)
-                        send_tags_btn = gr.Button(value='➕ Add to prompt', scale=1, min_width=120, interactive=False, visible=False)
+                        send_tags_btn = gr.Button(value='➕ Add to prompt', scale=1, interactive=False, visible=False)
                 with gr.Column(scale=2, elem_id='spanWidth'):
                     base_model = gr.Textbox(label='Base model: ', value=None, interactive=False, lines=1, elem_id='baseMdl')
                     model_filename = gr.Textbox(label='Model filename:', interactive=False, value=None)
@@ -377,9 +377,9 @@ def on_ui_tabs():
             
             with gr.Accordion(label='🔧 Scan Options', open=False):
                 with gr.Row(elem_id='civitai_update_toggles'):
-                    overwrite_toggle = gr.Checkbox(elem_id='overwrite_toggle', label='Overwrite any existing files (previews, HTMLs, tags, descriptions)', value=True, min_width=300)
-                    skip_hash_toggle = gr.Checkbox(elem_id='skip_hash_toggle', label='One-Time Hash Generation for externally downloaded models', value=True, min_width=300)
-                    do_html_gen = gr.Checkbox(elem_id='do_html_gen', label='Save HTML file for each model when updating info & tags', value=False, min_width=300)
+                    overwrite_toggle = gr.Checkbox(elem_id='overwrite_toggle', label='Overwrite any existing files (previews, HTMLs, tags, descriptions)', value=True)
+                    skip_hash_toggle = gr.Checkbox(elem_id='skip_hash_toggle', label='One-Time Hash Generation for externally downloaded models', value=True)
+                    do_html_gen = gr.Checkbox(elem_id='do_html_gen', label='Save HTML file for each model when updating info & tags', value=False)
             
             gr.Markdown('---')
             gr.Markdown('### 📝 Update Model Information')
@@ -445,9 +445,9 @@ def on_ui_tabs():
             
             with gr.Accordion(label='🔧 Scan Options', open=False):
                 with gr.Row(elem_id='civitai_local_toggles'):
-                    overwrite_toggle_local = gr.Checkbox(elem_id='overwrite_toggle_local', label='Overwrite any existing files (previews, HTMLs, tags, descriptions)', value=True, min_width=300)
-                    skip_hash_toggle_local = gr.Checkbox(elem_id='skip_hash_toggle_local', label='One-Time Hash Generation for externally downloaded models', value=True, min_width=300)
-                    do_html_gen_local = gr.Checkbox(elem_id='do_html_gen_local', label='Save HTML file for each model when updating info & tags', value=False, min_width=300)
+                    overwrite_toggle_local = gr.Checkbox(elem_id='overwrite_toggle_local', label='Overwrite any existing files (previews, HTMLs, tags, descriptions)', value=True)
+                    skip_hash_toggle_local = gr.Checkbox(elem_id='skip_hash_toggle_local', label='One-Time Hash Generation for externally downloaded models', value=True)
+                    do_html_gen_local = gr.Checkbox(elem_id='do_html_gen_local', label='Save HTML file for each model when updating info & tags', value=False)
             
             gr.Markdown('---')
             gr.Markdown('### 📋 Load Installed Models')
@@ -1422,7 +1422,7 @@ def on_ui_tabs():
                 fix_misplaced_btn,
                 validate_plan_state
             ],
-            show_progress="full"
+            show_progress=True
         )
 
         fix_misplaced_btn.click(
@@ -1434,7 +1434,7 @@ def on_ui_tabs():
                 undo_fix_btn,
                 validate_plan_state
             ],
-            show_progress="full"
+            show_progress=True
         )
 
         undo_fix_btn.click(
@@ -1513,13 +1513,16 @@ def on_ui_tabs():
         )
 
         # On page load, check for interrupted downloads and populate the restore banner
-        civitai_interface.load(
-            fn=_download.get_interrupted_downloads_json,
-            outputs=[restore_queue_input]
-        )
+        # NOTE: civitai_interface.load() requires Gradio 4 — not available in Gradio 3.x (A1111/Forge Classic)
+        import gradio as gr_check
+        if int(gr_check.__version__.split('.')[0]) >= 4:
+            civitai_interface.load(
+                fn=_download.get_interrupted_downloads_json,
+                outputs=[restore_queue_input]
+            )
 
-    tab_name = 'CivitAI Browser Neo'
-    return (civitai_interface, tab_name, 'civitai_interface_neo'),
+    tab_name = 'CivitAI Browser Ex'
+    return (civitai_interface, tab_name, 'civitai_interface_ex'),
 
 def subfolder_list(folder, desc=None):
     if folder == None:
@@ -1536,8 +1539,8 @@ def on_ui_settings():
     browser = ('civitai_browser', 'Browser')
     download = ('civitai_browser_download', 'Downloads')
 
-    categories.register_category('civitai_browser_neo', 'CivitAI Browser Neo')
-    cat_id = 'civitai_browser_neo'   # Settings category for Neo version
+    categories.register_category('civitai_browser_ex', 'CivitAI Browser Ex')
+    cat_id = 'civitai_browser_ex'   # Settings category for Ex version
 
     if not (hasattr(shared.OptionInfo, 'info') and callable(getattr(shared.OptionInfo, 'info'))):
         def info(self, info):
