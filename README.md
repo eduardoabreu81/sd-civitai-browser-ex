@@ -75,9 +75,7 @@ Examples:
 - [x] Removed all `min_width=` parameters from components (Gradio 4 only)
 - [x] Changed `show_progress="full"` → `show_progress=True` (Gradio 3 compatible)
 - [x] Guarded `civitai_interface.load()` behind Gradio version check — auto-restore banner on reconnect requires Gradio 4; on Gradio 3 the restore banner is accessible but not auto-triggered on page load
-- [x] Tab name and elem_id updated to `CivitAI Browser Ex` / `civitai_interface_ex`
-- [x] All `[CivitAI Browser Neo]` console prefixes updated to `[CivitAI Browser Ex]`
-- [x] README rewritten for A1111/Forge Classic audience
+
 
 ---
 
