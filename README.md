@@ -226,27 +226,18 @@ All settings are in **Settings → CivitAI Browser Ex**:
 
 ## 📦 Installation
 
-### For Automatic1111
-
-1. Open A1111 WebUI
-2. Navigate to **Extensions** → **Install from URL**
-3. Paste: `https://github.com/eduardoabreu81/sd-civitai-browser-ex`
-4. Click **Install** and reload WebUI
-
-### For Forge Classic
-
-1. Open Forge Classic WebUI
+1. Open your WebUI
 2. Navigate to **Extensions** → **Install from URL**
 3. Paste: `https://github.com/eduardoabreu81/sd-civitai-browser-ex`
 4. Click **Install** and reload WebUI
 
 ### Requirements
 
-- ✅ [Automatic1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui) or [Forge Classic](https://github.com/Haoming02/sd-webui-forge-classic) or any Gradio 3.x SD WebUI
+- ✅ [Automatic1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui), [Forge Classic](https://github.com/Haoming02/sd-webui-forge-classic), or any Gradio 3.x SD WebUI
 - ✅ Python 3.10+
 - ✅ Gradio 3.15+ (comes with the WebUI)
 
-> ⚠️ **Note**: For [Forge Neo](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo) (Gradio 4.x), use [sd-civitai-browser-neo](https://github.com/eduardoabreu81/sd-civitai-browser-neo) instead.
+> 💡 **Forge Neo user?** We recommend [sd-civitai-browser-neo](https://github.com/eduardoabreu81/sd-civitai-browser-neo) for an even better experience on Forge Neo.
 
 ---
 
