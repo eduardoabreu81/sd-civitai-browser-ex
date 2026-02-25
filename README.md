@@ -108,7 +108,7 @@ Examples:
 - **Browse CivitAI** directly inside the WebUI — no browser switching needed
 - **Search by keyword, tag, or username** — multiple search modes
 - **Filter by content type**: Checkpoint, LORA, LoCon, DoRA, VAE, ControlNet, Upscaler, TextualInversion, Wildcards, Workflows, and more
-- **Filter by base model**: SD 1.x, SDXL, Pony, Illustrious, FLUX, Wan, Qwen, Z-Image, NoobAI, Lumina, and many more — **auto-updated from CivitAI API** at startup (no hardcoded stale list)
+- **Filter by base model**: SD 1.x, SDXL, Pony, Illustrious, NoobAI, and more — **auto-updated from CivitAI API** at startup (no hardcoded stale list)
 - **Sort by**: Highest Rated, Most Downloaded, Newest, Most Liked, Most Discussed
 - **Filter by time period**: Day, Week, Month, Year, All Time
 - **NSFW toggle**: Show/hide NSFW content
@@ -143,7 +143,7 @@ Examples:
 
 ### 🗂️ Auto-Organization
 
-- **Organize new downloads automatically** into subfolders by base model type (SDXL/, Pony/, FLUX/, etc.)
+- **Organize new downloads automatically** into subfolders by base model type (SDXL/, Pony/, Illustrious/, etc.)
 - **Organize existing models** in one click from the Update Models tab
 - **Validate organization** — read-only scan that checks every model against its `.json` metadata and reports ✅ correct / ❌ misplaced / ⚠️ no-metadata, with a per-file table
 - **Fix misplaced files** — after validation, move only the flagged models to their correct subfolders in one click; backup created automatically
@@ -259,7 +259,7 @@ The organization system analyzes your models based on their `baseModel` metadata
 models/Lora/
 ├── model1.safetensors (SDXL)
 ├── model2.safetensors (Pony)
-├── model3.safetensors (FLUX)
+├── model3.safetensors (Illustrious)
 ├── random_folder/
 │   └── model4.safetensors (SD1.5)
 └── ...
@@ -274,7 +274,7 @@ models/Lora/
 │   └── model1.png
 ├── Pony/
 │   └── model2.safetensors
-├── FLUX/
+├── Illustrious/
 │   └── model3.safetensors
 ├── SD/
 │   └── model4.safetensors
@@ -319,24 +319,15 @@ The Dashboard provides comprehensive insight into your model collection with det
 
 ## 🎨 Supported Model Types
 
+> Forge Classic and A1111 are focused on **SD1 and SDXL** checkpoints. The organization system can still categorize any model type found in your collection, but only SD and SDXL families can be used for generation.
+
 | Category | Detection patterns | Notes |
 |----------|-------------------|-------|
-| **SD** | SD 1, SD1, SD 2, SD2 | Unified SD versions |
+| **SD** | SD 1, SD1, SD 2, SD2 | SD 1.x and SD 2.x |
 | **SDXL** | SDXL | Base SDXL |
-| **Pony** | PONY | Pony V6 and variants |
-| **Illustrious** | ILLUSTRIOUS | Illustrious XL |
-| **NoobAI** | NOOBAI, NOOB AI, NAI | NoobAI (Illustrious variant) |
-| **FLUX** | FLUX | Dev, Krea, Kontext, Klein |
-| **Wan** | WAN | Wan 2.2 T2V/I2V |
-| **Qwen** | QWEN | Qwen-Image, Edit |
-| **Z-Image** | Z-IMAGE, ZIMAGE | Z-Image, Turbo |
-| **Lumina** | LUMINA | Lumina-Image 2.0 |
-| **Cascade** | CASCADE | Stable Cascade |
-| **SVD** | SVD, STABLE VIDEO | Video Diffusion |
-| **Hunyuan** | HUNYUAN | Hunyuan |
-| **Kolors** | KOLORS | Kolors |
-| **AuraFlow** | AURAFLOW | AuraFlow |
-| **Chroma** | CHROMA | Chroma1-HD |
+| **Pony** | PONY | Pony V6 and variants (SDXL-based) |
+| **Illustrious** | ILLUSTRIOUS | Illustrious XL (SDXL-based) |
+| **NoobAI** | NOOBAI, NOOB AI, NAI | NoobAI v-pred (SDXL-based) |
 | **Other** | (unrecognized) | Configurable |
 
 ### Custom Categories
