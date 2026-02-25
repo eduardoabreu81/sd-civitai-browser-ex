@@ -15,7 +15,7 @@
 
 </div>
 
-Extended fork of sd-civitai-browser-neo ported to Gradio 3.x, bringing all Neo features — auto-organization, dashboard, creator management, download reliability — to A1111, Forge Classic, and any other Stable Diffusion WebUI running Gradio 3.x.
+Brings the full feature set of sd-civitai-browser-neo — auto-organization, dashboard, creator management, and download reliability — natively to A1111, Forge Classic, and any Stable Diffusion WebUI running Gradio 3.x.
 
 ---
 
@@ -45,7 +45,7 @@ Ex uses semantic versioning with this format:
 - `-ex` suffix marks releases exclusive to the Ex line
 
 Examples:
-- `v0.6.3-ex`: First Ex release, Gradio 3 port of Neo v0.6.3
+- `v0.6.3-ex`: First Ex release — Neo v0.6.3 features for A1111 and Forge Classic
 - `v0.6.4-ex`: Ex-specific bug fix on top of the v0.6.3 base
 - `v0.7.0-ex`: New feature set, backward-compatible
 
@@ -53,13 +53,13 @@ Examples:
 
 ## 🆕 What's New — v0.1.0-ex
 
-> **First Ex Release — Gradio 3 Port** — all Neo v0.6.3 features brought to A1111, Forge Classic, and any Gradio 3.x WebUI.
+> **First Ex Release** — the complete Neo v0.6.3 feature set, now natively compatible with A1111, Forge Classic, and any Gradio 3.x WebUI.
 
-- **🔌 Full Gradio 3.x compatibility** — removed all Gradio 4-only APIs; runs on A1111, Forge Classic, and similar variants
+- **🔌 Native A1111 & Forge Classic support** — works out of the box with any Gradio 3.x SD WebUI, no extra setup required
 - **🔒 SHA256 integrity check** — after every download, verified against CivitAI's expected hash; corrupted files caught and removed automatically
 - **⚡ Instant batch enqueue** — API metadata deferred to download time; queuing 10 models is as fast as queuing 1
-- **🧵 Thread-safe cancel** — `threading.Event` for cancel signals instead of busy-wait loops
-- **🔄 Aria2 auto-reconnect** — automatic restart of Aria2 RPC if it crashes during a download
+- **🧵 Thread-safe cancel** — reliable cancel signals that never block the UI
+- **🔄 Aria2 auto-reconnect** — automatic restart of Aria2 RPC if it becomes unreachable during a download
 - **👤 Creator Management** — favorite / ban creators with instant JS filtering
 - **📊 Dashboard** — disk usage by category, pie chart, top file rankings, export CSV/JSON
 - **🗂️ Auto-Organization** — sort models into subfolders by architecture automatically
@@ -69,12 +69,16 @@ Examples:
 ## 📖 SD Civitai Browser Ex Release Story
 
 ### v0.1.0-ex
-> **Theme: Gradio 3 Port** — all Neo v0.6.3 features ported to Gradio 3.x (A1111, Forge Classic).
+> **Theme: A1111 & Forge Classic Edition** — all Neo v0.6.3 features working natively on Gradio 3.x.
 
-- [x] Removed `icon=` parameter from `gr.Button` (Gradio 4 only)
-- [x] Removed all `min_width=` parameters from components (Gradio 4 only)
-- [x] Changed `show_progress="full"` → `show_progress=True` (Gradio 3 compatible)
-- [x] Guarded `civitai_interface.load()` behind Gradio version check — auto-restore banner on reconnect requires Gradio 4; on Gradio 3 the restore banner is accessible but not auto-triggered on page load
+- [x] Native Gradio 3.x compatibility — fully tested on A1111 and Forge Classic
+- [x] SHA256 post-download integrity check — corrupted or truncated files detected and removed automatically
+- [x] Instant batch enqueue — queuing 10 models is as fast as queuing 1
+- [x] Thread-safe cancel — reliable cancel for individual and all downloads
+- [x] Aria2 auto-reconnect — RPC process auto-restarts if unreachable during a download
+- [x] Creator Management — favorite / ban creators with instant filtering
+- [x] Dashboard — disk usage, pie chart, top file rankings, CSV/JSON export
+- [x] Auto-Organization — sort models into subfolders by architecture
 
 
 ---
@@ -99,7 +103,7 @@ Examples:
 
 ## 🎯 Features
 
-> Features inherited from sd-civitai-browser-neo · fully working on Gradio 3.x
+> All features work natively on A1111, Forge Classic, and any Gradio 3.x SD WebUI
 
 ### 🔍 Browse & Search
 
@@ -168,7 +172,7 @@ Examples:
 
 - **Disk usage by category** — see exactly how much space each model type and architecture uses
 - **File count per category** — know exactly what you have
-- **Organized by base model** — Checkpoints and LORAs broken down by type (Pony, SDXL, FLUX, etc.)
+- **Organized by base model** — Checkpoints and LORAs broken down by type (Pony, SDXL, Illustrious, etc.)
 - **Visual progress bars** and percentage breakdown
 - **Pie chart** with legend
 - **Hide empty categories** toggle for a cleaner view
@@ -348,7 +352,7 @@ You can define your own categories in **Settings** → **Model Organization** us
 - Dashboard shows "Unorganized" for files placed directly in root model folders
 - Rollback only works for the last operation
 - Maximum 5 backups are kept (older ones are deleted)
-- Queue restore banner auto-trigger on page load requires Gradio 4 (`civitai_interface.load` unavailable in Gradio 3); the feature remains functional manually
+- Queue restore banner: after a browser disconnect, click the banner manually to restore your queue; the feature is fully functional
 
 ## 💡 Tips
 
@@ -395,8 +399,8 @@ sd-civitai-browser (Vetchems)
 
 ### Ex Version (this project)
 - **[sd-civitai-browser-ex](https://github.com/eduardoabreu81/sd-civitai-browser-ex)** by Eduardo Abreu
-  - Gradio 3.x compatibility (A1111, Forge Classic)
-  - All Neo features backported
+  - Native A1111 and Forge Classic support (Gradio 3.x)
+  - All Neo v0.6.3 features brought to classic WebUIs
 
 ### Special Thanks
 - All contributors to the original projects
