@@ -55,6 +55,7 @@ Examples:
 
 > **Stability & Feature Sync** — all Neo v0.7.0 fixes and improvements, now on A1111 and Forge Classic.
 
+- **☑️ Update Selected** — in Update Mode, check any subset of outdated cards and click "Update Selected (N)" to queue only those; button reverts to "Update All" when nothing is selected
 - **🎯 Smart version selection** — clicking a card with an active base model filter (e.g. Illustrious) auto-selects the most recent version for that family
 - **🔒 Downloads survive screen lock** — Win+L, RunPod reconnects, and SSE disconnects no longer abort downloads in progress
 - **🛡️ EARLY_ACCESS / NO_API safety** — API-blocked downloads no longer save partial `.json`/`.html` files or delete unrelated existing files
@@ -72,6 +73,7 @@ Examples:
 ### v0.2.0-ex
 > **Theme: Stability & Feature Sync** — Neo v0.7.0 fixes and improvements ported to A1111 and Forge Classic.
 
+- [x] Update Selected — queue only checked cards, dynamic button label
 - [x] Smart version selection by base model filter
 - [x] Downloads survive screen lock / SSE disconnect (Win+L, RunPod)
 - [x] EARLY_ACCESS/NO_API: no more stray saves or unrelated file deletes
