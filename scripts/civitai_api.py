@@ -187,6 +187,98 @@ def contenttype_folder(content_type, desc=None, custom_folder=None):
     debug_print(f"Warning: Unknown content_type '{content_type}', no folder mapping found")
     return None
 
+
+def update_mode_page_html(content_type_filter, base_filter, tile_count, current_page):
+    """Render the update-mode card grid from gl.update_items (no API call)."""
+
+    def _fam_matches(fam, bf_lower):
+        if fam is None:
+            return False
+        fam_l = fam.lower()
+        return any(fam_l in b or b in fam_l for b in bf_lower)
+
+    def _type_short(model_type):
+        _map = {
+            'Checkpoint': 'CKPT', 'LORA': 'LORA', 'LoCon': 'LORA', 'DoRA': 'LORA',
+            'TextualInversion': 'TI', 'Controlnet': 'CTRL', 'VAE': 'VAE',
+            'Upscaler': 'UPSCL', 'Wildcards': 'WILD', 'Workflows': 'WFLOW',
+        }
+        return _map.get(model_type, (model_type or 'UNK')[:4].upper())
+
+    items = list(gl.update_items)
+
+    if not items:
+        return ('<div style="font-size:24px;text-align:center;margin:50px">'
+                'No updates found.</div>', 1, 1, False, False)
+
+    # Content-type filter
+    if content_type_filter:
+        ct_list = content_type_filter if isinstance(content_type_filter, list) else [content_type_filter]
+        if ct_list:
+            items = [i for i in items if i['model_type'] in ct_list]
+
+    # Base-model / family filter
+    if base_filter:
+        bf_list = base_filter if isinstance(base_filter, list) else [base_filter]
+        if bf_list:
+            bf_lower = [b.lower() for b in bf_list]
+            items = [i for i in items if _fam_matches(i.get('family'), bf_lower)]
+
+    if not items:
+        return ('<div style="font-size:24px;text-align:center;margin:50px">'
+                'No updates match the current filters.</div>', 1, 1, False, False)
+
+    # Pagination
+    tile_count = int(tile_count or 27)
+    total = len(items)
+    total_pages = max(1, (total + tile_count - 1) // tile_count)
+    current_page = max(1, min(int(current_page or 1), total_pages))
+    page_items = items[(current_page - 1) * tile_count: current_page * tile_count]
+
+    cards_html = []
+    for item in page_items:
+        model_id  = item['model_id']
+        model_name = item['model_name']
+        model_type = item['model_type']
+        family     = item.get('family') or ''
+        inst_ver   = item.get('installed_ver', '?')
+        new_ver    = item.get('latest_ver', '?')
+        preview_url = item.get('preview_url') or ''
+
+        type_badge  = _type_short(model_type)
+        fam_up      = family.upper()
+        fam_slug    = family.lower().replace(' ', '-') if family else ''
+
+        thumb_html = (
+            f'<img src="{preview_url}" loading="lazy" onerror="this.style.display=\'none\'">'
+            if preview_url
+            else '<div class="update-card-no-thumb">🖼</div>'
+        )
+        family_badge_html = (
+            f'<span class="update-badge update-badge-family {fam_slug}">{fam_up}</span>'
+            if family else ''
+        )
+        type_badge_html = f'<span class="update-badge update-badge-type">{type_badge}</span>'
+        js_update = f"updateSingleModel('{model_id}','{fam_up}')"
+        chk_id    = f"upchk-{model_id}-{fam_up}"
+
+        cards_html.append(f'''<figure class="civmodelcard update-mode-card" data-model-id="{model_id}" data-family="{fam_up}">
+  <input type="checkbox" class="model-checkbox update-card-checkbox" id="{chk_id}" data-model-id="{model_id}" data-family="{fam_up}" onchange="syncUpdateBtn()">
+  <label for="{chk_id}" class="custom-checkbox"><span class="checkbox-checkmark"></span></label>
+  <div class="civmodelcard-img-wrapper update-card-thumb">{thumb_html}</div>
+  <figcaption class="update-card-caption">
+    <div class="update-card-name" title="{model_name}">{model_name}</div>
+    <div class="update-card-badges">{type_badge_html}{family_badge_html}</div>
+    <div class="update-card-versions"><span class="ver-old">{inst_ver}</span><span class="ver-arrow"> → </span><span class="ver-new">{new_ver}</span></div>
+    <button class="update-card-btn" onclick="{js_update}" title="Update this model">⬆</button>
+  </figcaption>
+</figure>''')
+
+    html = f'<div class="civmodelcards update-mode-grid">{"".join(cards_html)}</div>'
+    return (html, total_pages, current_page,
+            current_page > 1, current_page < total_pages)
+
+
 def model_list_html(json_data):
     def filter_versions(item, hide_early_access, current_time):
         """Filter model versions based on file presence and early access status"""

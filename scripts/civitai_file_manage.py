@@ -3838,6 +3838,48 @@ def scan_finish():
         gr.update(interactive=not no_update, visible=not no_update)
     )
 
+
+def _render_update_mode_banner(count):
+    """Return the full HTML for the Update Mode banner + mode switcher."""
+    retention = getattr(opts, 'civitai_neo_update_retention', 'replace')
+    return f'''
+<div class="civupdate-bar" id="civupdate-bar">
+  <div class="civupdate-switcher">
+    <button class="mode-pill" onclick="exitUpdateMode()">🔍 Search CivitAI</button>
+    <button class="mode-pill mode-pill-active">🔄 Update Local Models ({count})</button>
+  </div>
+  <div class="civupdate-action-bar">
+    <span class="civupdate-count">🔄 <strong>{count}</strong> update{"s" if count != 1 else ""} available</span>
+    <button class="civupdate-btn-all" id="civupdate-update-btn" onclick="updateOrSelectedModels()">⬆️ Update All ({count})</button>
+    <span class="civupdate-retention">Retention: {retention}</span>
+  </div>
+</div>'''
+
+
+def enter_update_mode():
+    """Called via .then() after load_to_browser_outdated — activates the Update Mode banner."""
+    gl.update_mode = True
+    count = len(gl.update_items)
+    if count == 0:
+        return gr.update(value='')
+    return gr.update(value=_render_update_mode_banner(count))
+
+
+def exit_update_mode(content_type, sort_type, period_type, use_search_term, search_term,
+                     tile_count, base_filter, nsfw, exact_search):
+    """Deactivates Update Mode, clears banner, and returns to a normal browser state."""
+    gl.update_mode = False
+    gl.update_items = []
+    placeholder = '<div style="font-size: 24px; text-align: center; margin: 50px;">Click the search icon to load models.<br>Use the filter icon to filter results.</div>'
+    return (
+        gr.update(value=''),           # update_mode_banner cleared
+        gr.update(value=placeholder),  # list_html reset
+        gr.update(interactive=False),  # prev page
+        gr.update(interactive=False),  # next page
+        gr.update(value=1, maximum=1), # page slider
+    )
+
+
 ## === ANXETY EDITs ===
 def load_to_browser(content_type, sort_type, period_type, use_search_term, search_term, tile_count, base_filter, nsfw, exact_search):
     global from_ver, from_installed
