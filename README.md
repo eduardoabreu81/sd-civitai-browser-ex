@@ -22,8 +22,8 @@ Brings the full feature set of sd-civitai-browser-neo — auto-organization, das
 ## 📋 Table of Contents
 
 - [Ex Versioning](#-ex-versioning)
-- [What's New](#-whats-new--v020-ex)
-- [SD Civitai Browser Ex Release Story](#-sd-civitai-browser-ex-release-story)
+- [What's New](#-whats-new--v021-ex)
+- [Changelog](#-changelog)
 - [Roadmap](#%EF%B8%8F-roadmap)
 - [Features](#-features)
 - [Installation](#-installation)
@@ -53,8 +53,6 @@ Examples:
 
 ## 🆕 What's New — v0.2.1-ex
 
-### Wildcard Download Improvements *(synced from Neo v0.7.1)*
-
 - **Wildcards get their own subfolder** — each wildcard pack downloads into `wildcards/<model-name>/` by default, compatible with sd-dynamic-prompts `__subfolder/name__` syntax
 - **Flat zip extraction for wildcards** — files inside the zip are placed directly in the target folder with no internal folder structure, preventing double-nesting
 - **No preview images for wildcards** — `save_preview` and `save_images` are skipped for Wildcards
@@ -77,7 +75,13 @@ Examples:
 
 ---
 
-## 📖 SD Civitai Browser Ex Release Story
+## 📖 Changelog
+
+### v0.2.1-ex — Wildcard Download Improvements
+- Own subfolder per wildcard download (sd-dynamic-prompts compatible)
+- Flat zip extraction — no double-nesting when the zip has internal folders
+- Skip preview/gallery images for Wildcards
+- New settings: `wildcard_own_folder` (ON by default), `wildcard_organize_by_base` (OFF by default)
 
 ### v0.2.0-ex
 > **Theme: Stability & Feature Sync** — Neo v0.7.0 fixes and improvements ported to A1111 and Forge Classic.
