@@ -51,6 +51,14 @@ Examples:
 
 ---
 
+## 🆕 What's New — v0.2.x-ex
+
+### Wildcard Download Improvements *(synced from Neo)*
+
+- **Wildcards get their own subfolder** — each wildcard pack downloads into `wildcards/<model-name>/` by default, compatible with sd-dynamic-prompts `__subfolder/name__` syntax
+- **No preview images for wildcards** — `save_preview` and `save_images` are skipped for Wildcards
+- **Configurable base-model split for wildcards** — new setting `Organize wildcards by base model` (off by default)
+
 ## 🆕 What's New — v0.2.0-ex
 
 > **Stability & Feature Sync** — all Neo v0.7.0 fixes and improvements, now on A1111 and Forge Classic.
@@ -124,6 +132,8 @@ Examples:
 - Saved search presets
 - Favorites in creator search dropdown
 - SHA256 cache injection (read `.json` sidecars → populate `cache.json` instantly)
+- **Organization by Tag — Phase 1**: save CivitAI tags to `.json` sidecar; editable user-tags in model panel
+- **Organization by Tag — Phase 2**: pick anchor tags in Manage tab → models sort into `<type>/<tag>/` subfolders
 
 ---
 
