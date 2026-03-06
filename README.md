@@ -84,8 +84,6 @@ Examples:
 - New settings: `wildcard_own_folder` (ON by default), `wildcard_organize_by_base` (OFF by default)
 
 ### v0.2.0-ex
-> **Theme: Stability & Feature Sync** — Neo v0.7.0 fixes and improvements ported to A1111 and Forge Classic.
-
 - [x] Update Selected — queue only checked cards, dynamic button label
 - [x] Smart version selection by base model filter
 - [x] Downloads survive screen lock / SSE disconnect (Win+L, RunPod)
@@ -101,8 +99,6 @@ Examples:
 ---
 
 ### v0.1.0-ex
-> **Theme: A1111 & Forge Classic Edition** — all Neo v0.6.3 features working natively on Gradio 3.x.
-
 - [x] Native Gradio 3.x compatibility — fully tested on A1111 and Forge Classic
 - [x] SHA256 post-download integrity check — corrupted or truncated files detected and removed automatically
 - [x] Instant batch enqueue — queuing 10 models is as fast as queuing 1
