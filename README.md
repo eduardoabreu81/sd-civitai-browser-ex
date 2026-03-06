@@ -58,21 +58,6 @@ Examples:
 - **No preview images for wildcards** — `save_preview` and `save_images` are skipped for Wildcards
 - **Configurable base-model split for wildcards** — new setting `Organize wildcards by base model` (off by default)
 
-## 🆕 What's New — v0.2.0-ex
-
-> **Stability & Feature Sync** — all Neo v0.7.0 fixes and improvements, now on A1111 and Forge Classic.
-
-- **☑️ Update Selected** — in Update Mode, check any subset of outdated cards and click "Update Selected (N)" to queue only those; button reverts to "Update All" when nothing is selected
-- **🎯 Smart version selection** — clicking a card with an active base model filter (e.g. Illustrious) auto-selects the most recent version for that family
-- **🔒 Downloads survive screen lock** — Win+L, RunPod reconnects, and SSE disconnects no longer abort downloads in progress
-- **🛡️ EARLY_ACCESS / NO_API safety** — API-blocked downloads no longer save partial `.json`/`.html` files or delete unrelated existing files
-- **📁 Embeddings folder auto-detection** — supports both old (`embeddings/`) and new (`models/embeddings/`) layouts; warns if both have files
-- **🖼️ Fixed send-to-txt2img** — intermittent failure sending prompt/settings to txt2img resolved
-- **🐛 Session restore guard** — download queue no longer crashes restoring a session when the model list hasn't loaded yet
-- **🐛 Model info crash fix** — model info panel no longer errors on lazy fetch when queue enriches a model not in current search results
-- **🐛 `save_images` guard** — no crash when preview HTML is unavailable for a model
-- **🐛 Debug log format** — debug messages now use the correct `[CivitAI Browser Ex]` prefix and respect the debug setting
-
 ---
 
 ## 📖 Changelog
