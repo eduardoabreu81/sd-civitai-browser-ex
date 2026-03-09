@@ -22,7 +22,7 @@ Brings the full feature set of sd-civitai-browser-neo — auto-organization, das
 ## 📋 Table of Contents
 
 - [Ex Versioning](#-ex-versioning)
-- [What's New](#-whats-new--v021-ex)
+- [What's New](#-whats-new--v022-ex)
 - [Changelog](#-changelog)
 - [Roadmap](#%EF%B8%8F-roadmap)
 - [Features](#-features)
@@ -51,16 +51,16 @@ Examples:
 
 ---
 
-## 🆕 What's New — v0.2.1-ex
+## 🆕 What's New — v0.2.2-ex
 
-- **Wildcards get their own subfolder** — each wildcard pack downloads into `wildcards/<model-name>/` by default, compatible with sd-dynamic-prompts `__subfolder/name__` syntax
-- **Flat zip extraction for wildcards** — files inside the zip are placed directly in the target folder with no internal folder structure, preventing double-nesting
-- **No preview images for wildcards** — `save_preview` and `save_images` are skipped for Wildcards
-- **Configurable base-model split for wildcards** — new setting `Organize wildcards by base model` (off by default)
+- **Startup crash fix** — `update_mode_banner` was referenced as a Gradio output but never declared, causing a `NameError` on extension load (thanks @Cautioncrazy for the report and PR)
 
 ---
 
 ## 📖 Changelog
+
+### v0.2.2-ex — Startup Crash Fix
+- Fixed `NameError: name 'update_mode_banner' is not defined` — component was used as a Gradio callback output but never declared in the Browser tab layout
 
 ### v0.2.1-ex — Wildcard Download Improvements
 - Own subfolder per wildcard download (sd-dynamic-prompts compatible)
@@ -102,11 +102,10 @@ Examples:
 
 ### v0.2.0-ex — Stability & Feature Sync *(complete)* ✅
 
-### v0.2.1-ex — Wildcard Improvements *(current)*
-- Wildcards get their own subfolder per download
-- Flat zip extraction for wildcards — no double-nesting
-- Skip preview/images for wildcards
-- New settings: `wildcard_own_folder` (ON) and `wildcard_organize_by_base` (OFF)
+### v0.2.1-ex — Wildcard Improvements *(complete)* ✅
+
+### v0.2.2-ex — Startup Crash Fix *(current)*
+- Fixed `NameError: update_mode_banner` on extension load
 
 ### v0.3.0-ex — Stabilization *(planned)*
 - A1111-specific path handling improvements
