@@ -22,7 +22,7 @@ Brings the full feature set of sd-civitai-browser-neo — auto-organization, das
 ## 📋 Table of Contents
 
 - [Ex Versioning](#-ex-versioning)
-- [What's New](#-whats-new--v022-ex)
+- [What's New](#-whats-new--v023-ex)
 - [Changelog](#-changelog)
 - [Roadmap](#%EF%B8%8F-roadmap)
 - [Features](#-features)
@@ -51,13 +51,18 @@ Examples:
 
 ---
 
-## 🆕 What's New — v0.2.2-ex
+## 🆕 What's New — v0.2.3-ex
 
-- **Startup crash fix** — `update_mode_banner` was referenced as a Gradio output but never declared, causing a `NameError` on extension load (thanks @Cautioncrazy for the report and PR)
+- **Per-group trigger word rows** — each trigger word group gets its own row with individual 📋 copy and ➕ add-to-prompt buttons, mirroring the CivitAI website layout; LORAs show the `<lora:filename:1>` tag as the first row; "Add all to prompt" button joins everything at once
 
 ---
 
 ## 📖 Changelog
+
+### v0.2.3-ex — Per-group Trigger Word Rows
+- Each trigger word group gets its own row with individual copy and add-to-prompt buttons
+- LORA tag row (`<lora:filename:1>`) shown as first entry
+- "Add all to prompt" button when multiple groups exist
 
 ### v0.2.2-ex — Startup Crash Fix
 - Fixed `NameError: name 'update_mode_banner' is not defined` — component was used as a Gradio callback output but never declared in the Browser tab layout
@@ -104,8 +109,11 @@ Examples:
 
 ### v0.2.1-ex — Wildcard Improvements *(complete)* ✅
 
-### v0.2.2-ex — Startup Crash Fix *(current)*
-- Fixed `NameError: update_mode_banner` on extension load
+### v0.2.2-ex — Startup Crash Fix *(complete)* ✅
+
+### v0.2.3-ex — Per-group Trigger Word Rows *(current)*
+- Individual copy/add buttons per trigger word group
+- LORA activation tag as dedicated first row
 
 ### v0.3.0-ex — Stabilization *(planned)*
 - A1111-specific path handling improvements

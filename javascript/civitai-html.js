@@ -1058,6 +1058,26 @@ function downloadBlobFile(content, filename, mimeType) {
     }
 }
 
+function copyTriggerWord(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+    }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (_) {}
+        document.body.removeChild(ta);
+        const orig = btn.textContent;
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+    });
+}
+
 // Sends trained tags (trigger words) to txt2img prompt
 // Shift+click appends to existing prompt; regular click replaces
 function sendTagsToPrompt(tags) {
