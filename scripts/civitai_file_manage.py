@@ -1375,6 +1375,27 @@ def find_and_save(api_response, sha256=None, file_name=None, json_file=None, no_
         gl.json_info = item
         trained_words = model_version.get('trainedWords', [])
 
+        def _sanitize_group_text(value):
+            text = str(value) if value is not None else ''
+            text = re.sub(r'<[^>]*:[^>]*>', '', text)
+            text = re.sub(r',\s*', ', ', text)
+            return text.strip(', ').strip()
+
+        # Preserve original API grouping for UI rows (same shape as CivitAI).
+        api_groups = []
+        _seen_groups = set()
+        if isinstance(trained_words, list):
+            for group in trained_words:
+                cleaned = _sanitize_group_text(group)
+                key = cleaned.lower()
+                if cleaned and key not in _seen_groups:
+                    _seen_groups.add(key)
+                    api_groups.append(cleaned)
+        elif isinstance(trained_words, str):
+            cleaned = _sanitize_group_text(trained_words)
+            if cleaned:
+                api_groups = [cleaned]
+
         if save_desc:
             description = item.get('description', '')
             if description is not None and description.strip():
@@ -1392,14 +1413,7 @@ def find_and_save(api_response, sha256=None, file_name=None, json_file=None, no_
             base_model = 'Other'
 
         content = _api.safe_json_load(json_file) or {}
-        api_tags = None
-        if isinstance(trained_words, list):
-            api_tags = ','.join(trained_words)
-            api_tags = re.sub(r'<[^>]*:[^>]*>', '', api_tags)
-            api_tags = re.sub(r', ?', ', ', api_tags)
-            api_tags = api_tags.strip(', ')
-        else:
-            api_tags = trained_words
+        api_tags = ', '.join(api_groups) if api_groups else ''
 
         json_tags = content.get('activation text', '')
         safetensors_tags = []
@@ -1428,6 +1442,9 @@ def find_and_save(api_response, sha256=None, file_name=None, json_file=None, no_
             if 'activation text' not in content:
                 content['activation text'] = trained_tags
                 changed = True
+            if api_groups and 'activation text groups' not in content:
+                content['activation text groups'] = api_groups
+                changed = True
             if save_desc and ('description' not in content):
                 content['description'] = description
                 changed = True
@@ -1446,6 +1463,8 @@ def find_and_save(api_response, sha256=None, file_name=None, json_file=None, no_
                 changed = True
         else:
             content['activation text'] = trained_tags
+            if api_groups:
+                content['activation text groups'] = api_groups
             if save_desc:
                 content['description'] = description
             content['sd version'] = base_model

@@ -188,10 +188,45 @@ def contenttype_folder(content_type, desc=None, custom_folder=None):
     return None
 
 
-def get_local_trigger_words(content_type, model_filename, sha256_value=None):
-    """Try to load trigger words from local .json sidecar."""
+def get_local_trigger_words(content_type, model_filename, sha256_value=None, allow_legacy=False):
+    """Try to load trigger words from local .json sidecar.
+
+    Priority is the grouped field used to preserve CivitAI rows.
+    Legacy flat field can be enabled as fallback with allow_legacy=True.
+    """
     try:
         if not content_type or not model_filename:
+            return None
+
+        def _extract_groups(data):
+            if not isinstance(data, dict):
+                return None
+
+            raw_groups = data.get('activation text groups')
+            if raw_groups is None:
+                raw_groups = data.get('activation_text_groups')
+
+            groups = []
+            if isinstance(raw_groups, list):
+                groups = [str(g).strip() for g in raw_groups if str(g).strip()]
+            elif isinstance(raw_groups, str) and raw_groups.strip():
+                parsed = None
+                try:
+                    parsed = json.loads(raw_groups)
+                except Exception:
+                    parsed = None
+                if isinstance(parsed, list):
+                    groups = [str(g).strip() for g in parsed if str(g).strip()]
+                else:
+                    groups = [g.strip() for g in re.split(r'[\n\r]+', raw_groups) if g.strip()]
+
+            if groups:
+                return groups
+
+            if allow_legacy and data.get('activation text'):
+                text = data.get('activation text', '')
+                return [t.strip() for t in re.split(r'[,;\n\r]+', text) if t.strip()]
+
             return None
 
         model_folder = contenttype_folder(content_type)
@@ -206,9 +241,9 @@ def get_local_trigger_words(content_type, model_filename, sha256_value=None):
             direct = model_folder / candidate
             if direct.exists():
                 data = safe_json_load(str(direct))
-                if data and data.get('activation text'):
-                    text = data.get('activation text', '')
-                    return [t.strip() for t in re.split(r'[,;\n\r]+', text) if t.strip()]
+                groups = _extract_groups(data)
+                if groups:
+                    return groups
 
         for candidate in candidate_names:
             matches = list(model_folder.rglob(candidate))
@@ -217,9 +252,9 @@ def get_local_trigger_words(content_type, model_filename, sha256_value=None):
             matches.sort(key=lambda p: len(str(p)))
             for json_file in matches:
                 data = safe_json_load(str(json_file))
-                if data and data.get('activation text'):
-                    text = data.get('activation text', '')
-                    return [t.strip() for t in re.split(r'[,;\n\r]+', text) if t.strip()]
+                groups = _extract_groups(data)
+                if groups:
+                    return groups
 
         return None
     except Exception:
