@@ -51,13 +51,20 @@ Examples:
 
 ---
 
-## 🆕 What's New — v0.2.3-ex
+## 🆕 What's New — v0.2.4-ex
 
-- **Per-group trigger word rows** — each trigger word group gets its own row with individual 📋 copy and ➕ add-to-prompt buttons, mirroring the CivitAI website layout; LORAs show the `<lora:filename:1>` tag as the first row; "Add all to prompt" button joins everything at once
+- **Trigger word consolidation from 3 sources** — merges `.safetensors` metadata, local `.json` `activation text`, and CivitAI API `trainedWords`
+- **Deduplicated output** — repeated trigger words are merged case-insensitively while preserving first-seen order
+- **Local-first panel behavior** — model info trigger words use local consolidated cache first, with API fallback when local data is missing
 
 ---
 
 ## 📖 Changelog
+
+### v0.2.4-ex — Trigger Word Consolidation
+- Consolidated trigger words from `.safetensors` metadata, local `.json` `activation text`, and API `trainedWords`
+- Added case-insensitive deduplication while preserving order
+- Model info now prioritizes local consolidated trigger words, with API fallback when local cache is unavailable
 
 ### v0.2.3-ex — Per-group Trigger Word Rows
 - Each trigger word group gets its own row with individual copy and add-to-prompt buttons
@@ -111,9 +118,11 @@ Examples:
 
 ### v0.2.2-ex — Startup Crash Fix *(complete)* ✅
 
-### v0.2.3-ex — Per-group Trigger Word Rows *(current)*
-- Individual copy/add buttons per trigger word group
-- LORA activation tag as dedicated first row
+### v0.2.3-ex — Per-group Trigger Word Rows *(complete)* ✅
+
+### v0.2.4-ex — Trigger Word Consolidation *(current)*
+- Merge trigger words from metadata, local json and API
+- Prefer local consolidated cache in model info with API fallback
 
 ### v0.3.0-ex — Stabilization *(planned)*
 - A1111-specific path handling improvements
