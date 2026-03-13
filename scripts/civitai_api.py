@@ -188,6 +188,44 @@ def contenttype_folder(content_type, desc=None, custom_folder=None):
     return None
 
 
+def get_local_trigger_words(content_type, model_filename, sha256_value=None):
+    """Try to load trigger words from local .json sidecar."""
+    try:
+        if not content_type or not model_filename:
+            return None
+
+        model_folder = contenttype_folder(content_type)
+        if not model_folder:
+            return None
+
+        model_folder = Path(model_folder)
+        name_stem = Path(model_filename).stem
+        candidate_names = [f'{name_stem}.json', f'{model_filename}.json']
+
+        for candidate in candidate_names:
+            direct = model_folder / candidate
+            if direct.exists():
+                data = safe_json_load(str(direct))
+                if data and data.get('activation text'):
+                    text = data.get('activation text', '')
+                    return [t.strip() for t in re.split(r'[,;\n\r]+', text) if t.strip()]
+
+        for candidate in candidate_names:
+            matches = list(model_folder.rglob(candidate))
+            if not matches:
+                continue
+            matches.sort(key=lambda p: len(str(p)))
+            for json_file in matches:
+                data = safe_json_load(str(json_file))
+                if data and data.get('activation text'):
+                    text = data.get('activation text', '')
+                    return [t.strip() for t in re.split(r'[,;\n\r]+', text) if t.strip()]
+
+        return None
+    except Exception:
+        return None
+
+
 def update_mode_page_html(content_type_filter, base_filter, tile_count, current_page):
     """Render the update-mode card grid from gl.update_items (no API call)."""
 
@@ -1419,7 +1457,15 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
                 )
 
                 # Build trigger words block — per-group rows with individual copy/add buttons
-                raw_trained_words = selected_version.get('trainedWords', [])
+                local_trigger_words = None
+                if model_filename and content_type:
+                    local_trigger_words = get_local_trigger_words(content_type, model_filename, sha256_value)
+
+                if local_trigger_words is not None:
+                    raw_trained_words = local_trigger_words
+                else:
+                    raw_trained_words = selected_version.get('trainedWords', [])
+
                 def _sanitize_tw(s):
                     s = re.sub(r'<[^>]*:[^>]*>', '', s)
                     s = re.sub(r', ?', ', ', s)

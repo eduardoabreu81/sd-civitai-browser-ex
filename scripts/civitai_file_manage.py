@@ -1300,6 +1300,67 @@ def find_model_version_by_filename(api_response, file_name):
                     return model_version, item
     return None, None
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Trigger Word Consolidation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def extract_safetensors_metadata(file_path):
+    """Extract trigger words/metadata from a .safetensors file."""
+    if not file_path or not os.path.exists(file_path):
+        return []
+
+    def _split_tags(value):
+        if not isinstance(value, str):
+            return []
+        return [t.strip() for t in re.split(r'[,;\n\r]+', value) if t.strip()]
+
+    try:
+        with open(file_path, 'rb') as f:
+            header_size_bytes = f.read(8)
+            if len(header_size_bytes) < 8:
+                return []
+
+            header_size = int.from_bytes(header_size_bytes, byteorder='little')
+            header_json = f.read(header_size).decode('utf-8', errors='ignore')
+            header_dict = json.loads(header_json)
+
+            metadata = header_dict.get('__metadata__', {})
+            if isinstance(metadata, dict):
+                for key in ['activation_text', 'activation text', 'trigger_words', 'trigger words', 'tags']:
+                    if key in metadata:
+                        val = metadata[key]
+                        if isinstance(val, list):
+                            return [str(t).strip() for t in val if str(t).strip()]
+                        tags = _split_tags(val)
+                        if tags:
+                            return tags
+
+            return []
+    except Exception:
+        return []
+
+def consolidate_trigger_words(safetensors_tags=None, json_tags=None, api_tags=None):
+    """Consolidate trigger words from safetensors, local json and api with deduplication."""
+    def _split_tags(value):
+        if isinstance(value, list):
+            return [str(t).strip() for t in value if str(t).strip()]
+        if isinstance(value, str):
+            return [t.strip() for t in re.split(r'[,;\n\r]+', value) if t.strip()]
+        return []
+
+    sources = []
+    sources.extend(_split_tags(safetensors_tags))
+    sources.extend(_split_tags(json_tags))
+    sources.extend(_split_tags(api_tags))
+
+    seen = {}
+    for tag in sources:
+        key = tag.lower()
+        if key not in seen:
+            seen[key] = tag
+
+    return list(seen.values())
+
 ## === ANXETY EDITs ===
 def find_and_save(api_response, sha256=None, file_name=None, json_file=None, no_hash=None, overwrite_toggle=None):
     save_desc = getattr(opts, 'model_desc_to_json', True)
@@ -1330,15 +1391,38 @@ def find_and_save(api_response, sha256=None, file_name=None, json_file=None, no_
         if not base_model:
             base_model = 'Other'
 
-        if isinstance(trained_words, list):
-            trained_tags = ','.join(trained_words)
-            trained_tags = re.sub(r'<[^>]*:[^>]*>', '', trained_tags)
-            trained_tags = re.sub(r', ?', ', ', trained_tags)
-            trained_tags = trained_tags.strip(', ')
-        else:
-            trained_tags = trained_words
-
         content = _api.safe_json_load(json_file) or {}
+        api_tags = None
+        if isinstance(trained_words, list):
+            api_tags = ','.join(trained_words)
+            api_tags = re.sub(r'<[^>]*:[^>]*>', '', api_tags)
+            api_tags = re.sub(r', ?', ', ', api_tags)
+            api_tags = api_tags.strip(', ')
+        else:
+            api_tags = trained_words
+
+        json_tags = content.get('activation text', '')
+        safetensors_tags = []
+        model_file_path = None
+        if json_file and file_name:
+            model_file_path = os.path.join(os.path.dirname(json_file), file_name)
+        if not model_file_path and json_file:
+            json_stem = os.path.splitext(json_file)[0]
+            for ext in ['.safetensors', '.ckpt', '.pt', '.bin', '.pth']:
+                candidate = f'{json_stem}{ext}'
+                if os.path.exists(candidate):
+                    model_file_path = candidate
+                    break
+        if model_file_path and model_file_path.lower().endswith('.safetensors'):
+            safetensors_tags = extract_safetensors_metadata(model_file_path)
+
+        consolidated_tags = consolidate_trigger_words(
+            safetensors_tags=safetensors_tags,
+            json_tags=json_tags,
+            api_tags=api_tags
+        )
+        trained_tags = ', '.join(consolidated_tags) if consolidated_tags else ''
+
         changed = False
         if overwrite_toggle == False:
             if 'activation text' not in content:
