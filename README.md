@@ -33,15 +33,20 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 🆕 What's New
 
-### v0.8.1-ex — Trigger Word Group Preservation & API Resilience
+### v0.8.2-ex — Checkpoint SHA256 Cache Sync
 
-- **Trigger word group formats preserved** — processing large updates no longer flattens the grouping layout from CivitAI API for trigger words.
-- **Improved API resilience** — bulk tag updates now apply exponential backoff retries when random server errors are encountered (HTTP 500, 502, 503, 504), reducing incomplete local indexes.
-- **Button layout updated** — model panel 'Copy' and 'Add to prompt' buttons for trigger words moved to the left for better usability.
+- **Automatic cache sync after checkpoint download** — when a checkpoint download finishes successfully, its SHA256 is now written to WebUI cache immediately.
+- **Manual sync button in Update Models** — new action `Sync checkpoint SHA256 cache` scans local checkpoints and adds only missing SHA256 entries to WebUI cache.
+- **Local checkpoint hash registry** — new local registry tracks synced checkpoints and prunes stale entries when files are deleted from disk.
 
 ---
 
 ## 📖 Changelog
+
+### v0.8.2-ex — Checkpoint SHA256 Cache Sync
+- Added automatic SHA256 cache sync for checkpoints right after successful download completion.
+- Added a manual `Sync checkpoint SHA256 cache` button in Update Models to reconcile local checkpoints against WebUI cache.
+- Added local checkpoint hash registry (`lib/models/checkpoint_hashes.json`) to track synced entries and clean stale records for deleted files.
 
 ### v0.8.1-ex — Trigger Word Bugfixes & Resilience
 - Fixed an issue where the local trigger word fallback process ignored API groups and flattened words into single lines.
@@ -83,30 +88,32 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 🗺️ Roadmap
 
-### v0.7.0 — Forge Neo Compatibility *(complete)* ✅
+### v0.7.0-ex — Forge Classic/A1111 Compatibility *(complete)* ✅
 
-### v0.7.1 — Wildcard Download Improvements *(complete)* ✅
+### v0.7.1-ex — Wildcard Download Improvements *(complete)* ✅
 
-### v0.7.2 — Bug Fixes *(complete)* ✅
+### v0.7.2-ex — Bug Fixes *(complete)* ✅
 
-### v0.7.3 — Per-group Trigger Word Rows *(complete)* ✅
+### v0.7.3-ex — Per-group Trigger Word Rows *(complete)* ✅
 
-### v0.7.4 — Wan I2V/T2V Differentiation *(complete)* ✅
+### v0.7.4-ex — Wan I2V/T2V Differentiation *(complete)* ✅
 
-### v0.8.0 — Trigger Word Consolidation *(complete)* ✅
+### v0.8.0-ex — Trigger Word Consolidation *(complete)* ✅
 
-### v0.8.1 — Trigger Word Bugfixes & Resilience *(complete)* ✅
+### v0.8.1-ex — Trigger Word Bugfixes & Resilience *(complete)* ✅
 
-### v0.9.0 — Advanced Curation *(planned)*
+### v0.8.2-ex — Checkpoint SHA256 Cache Sync *(complete)* ✅
+
+### v0.9.0-ex — Advanced Curation *(planned)*
 - Saved search presets
 - Favorites in creator/user search
 - Additional browser quality-of-life improvements
 - **Organization by Tag — Phase 1**: save CivitAI tags to `.json` sidecar; editable user-tags field in model panel for manual assignment
 - **Organization by Tag — Phase 2**: in Manage tab, pick "anchor" tags → models with that tag sort into `<type>/<tag>/` subfolders (independent of base-model organization)
 
-### v1.0.0 — First Stable Release *(planned)*
+### v1.0.0-ex — First Stable Release *(planned)*
 - All known issues resolved
-- Full Forge Neo compatibility guarantee
+- Full A1111/Forge Classic compatibility guarantee
 
 ---
 

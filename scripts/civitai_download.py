@@ -984,6 +984,18 @@ def download_create_thread(download_finish, queue_trigger, progress=gr_progress_
                 if item['create_json']:
                     _file.save_model_info(effective_install_path, item['model_filename'], item['sub_folder'], item['model_sha256'], item['preview_html'], api_response=item['model_json'])
                 info_to_json(path_to_new_file, item['model_id'], item['model_sha256'], unpackList)
+
+                if _item_content_type == 'Checkpoint' and os.path.exists(path_to_new_file):
+                    sidecar_path = os.path.splitext(path_to_new_file)[0] + '.json'
+                    sidecar_data = _api.safe_json_load(sidecar_path) if os.path.exists(sidecar_path) else {}
+                    sidecar_data = sidecar_data if isinstance(sidecar_data, dict) else {}
+                    _file.sync_checkpoint_sha256_on_download(
+                        path_to_new_file,
+                        sidecar_data.get('sha256') or item.get('model_sha256'),
+                        model_id=sidecar_data.get('modelId') or item.get('model_id'),
+                        model_version_id=sidecar_data.get('modelVersionId')
+                    )
+
                 if not _is_wildcard_dl:
                     _file.save_preview(path_to_new_file, item['model_json'], True, item['model_sha256'])
                     if save_all_images:
