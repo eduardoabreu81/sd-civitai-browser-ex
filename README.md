@@ -33,74 +33,75 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 🆕 What's New
 
-### v0.8.2-ex — Checkpoint SHA256 Cache Sync
+### v0.2.4-ex — Trigger Word Consolidation
 
-- **Automatic cache sync after checkpoint download** — when a checkpoint download finishes successfully, its SHA256 is now written to WebUI cache immediately.
-- **Manual sync button in Update Models** — new action `Sync checkpoint SHA256 cache` scans local checkpoints and adds only missing SHA256 entries to WebUI cache.
-- **Local checkpoint hash registry** — new local registry tracks synced checkpoints and prunes stale entries when files are deleted from disk.
-
-### v0.8.2-ex — Checkpoint SHA256 Cache Sync
-- Added automatic SHA256 cache sync for checkpoints right after successful download completion.
-- Added a manual `Sync checkpoint SHA256 cache` button in Update Models to reconcile local checkpoints against WebUI cache.
-- Added local checkpoint hash registry (`lib/models/checkpoint_hashes.json`) to track synced entries and clean stale records for deleted files.
-
-### v0.8.1-ex — Trigger Word Bugfixes & Resilience
-- Fixed an issue where the local trigger word fallback process ignored API groups and flattened words into single lines.
-- Fixed an issue where "Update model info & tags" didn't safely persist incoming `trainedWords` groups natively to the local cache.
-- Added exponential backoff retry mechanism to API calls returning temporary 50x server errors, saving "Update models" loops from failing silently on affected files.
-- Moved trigger word row buttons (📋 / ➕) to the left side of the text in the preview panel.
-
-### v0.8.0-ex — Trigger Word Consolidation
 - Consolidated trigger words from `.safetensors` metadata, local `.json` `activation text`, and API `trainedWords`
 - Added case-insensitive deduplication while preserving original order
 - Model info now uses local consolidated trigger words first, with API fallback when local cache is unavailable
 
-### v0.7.4-ex — Wan I2V/T2V Differentiation
-- Wan card badges now distinguish `I2V`, `T2V`, and `TI2V` subtypes (API already returns specific `baseModel` values)
-- New setting `civitai_neo_wan_subfolder_by_type` (OFF by default): splits Wan downloads into `Wan/I2V/`, `Wan/T2V/`, `Wan/TI2V/` subfolders
-- Fixed multi-level subfolder "already organized" check (was using `os.path.basename`, broke for `Wan/I2V` paths)
-- Fixed Flux.2 Klein 4B/9B and Flux.2 D showing `F1` badge — now correctly shows `F2`
+---
 
-### v0.7.3-ex — Per-group Trigger Word Rows
+## 📖 Changelog
+
+### v0.2.4-ex — Trigger Word Consolidation
+- Consolidated trigger words from `.safetensors` metadata, local `.json` `activation text`, and API `trainedWords`
+- Added case-insensitive deduplication while preserving original order
+- Model info now uses local consolidated trigger words first, with API fallback when local cache is unavailable
+
+### v0.2.3-ex — Per-group Trigger Word Rows
 - Each trigger word group gets its own row with individual copy and add-to-prompt buttons
 - LORA tag row (`<lora:filename:1>`) shown as first entry in purple/monospace
 - Clipboard copy with ✓ visual feedback (1.5s)
 - "Add all to prompt" button when multiple groups exist
 
-### v0.7.2-ex — Bug Fixes
-- Fixed wildcard base-model subfolder being applied in GUI even when `wildcard_organize_by_base` is OFF (`civitai_api.py` path calculation was missing the wildcard guard)
-- Fixed delete-by-SHA256 silently failing — `json_base` path not joined with `root`, making `os.path.exists` search in CWD instead of the model directory
+### v0.2.2-ex — Startup Crash Fix
+- Fixed `NameError: name 'update_mode_banner' is not defined` — component was used as a Gradio callback output but never declared in the Browser tab layout
 
-### v0.7.1-ex — Wildcard Download Improvements
+### v0.2.1-ex — Wildcard Download Improvements
 - Own subfolder per wildcard download (sd-dynamic-prompts compatible)
 - Flat zip extraction — no double-nesting when the zip has internal folders
 - Skip preview/gallery images for Wildcards
 - New settings: `wildcard_own_folder` (ON by default), `wildcard_organize_by_base` (OFF by default)
 
-### v0.7.0-ex — Baseline
-- Initial Release
+### v0.2.0-ex
+- Update Selected — queue only checked cards, dynamic button label
+- Smart version selection by base model filter
+- Downloads survive screen lock / SSE disconnect (Win+L, RunPod)
+- EARLY_ACCESS/NO_API: no more stray saves or unrelated file deletes
+- Embeddings folder auto-detection (old and new layout support)
+- Warn when both embeddings folders have content
+- Fixed send-to-txt2img intermittent failure
+- Guard against None json_data in session restore
+- Fixed UnboundLocalError for model_folder in update flow
+- Guard None preview_html in save_images
+- Fixed _debug_log message format
+
+### v0.1.0-ex
+- Native Gradio 3.x compatibility
+- Initial EX baseline for A1111 / Forge Classic
 
 ---
 
 ## 🗺️ Roadmap
 
-### v0.7.0-ex — Forge Classic/A1111 Compatibility *(complete)* ✅
+### v0.1.0-ex — Gradio 3 Port *(complete)* ✅
 
-### v0.7.1-ex — Wildcard Download Improvements *(complete)* ✅
+### v0.2.0-ex — Stability & Feature Sync *(complete)* ✅
 
-### v0.7.2-ex — Bug Fixes *(complete)* ✅
+### v0.2.1-ex — Wildcard Improvements *(complete)* ✅
 
-### v0.7.3-ex — Per-group Trigger Word Rows *(complete)* ✅
+### v0.2.2-ex — Startup Crash Fix *(complete)* ✅
 
-### v0.7.4-ex — Wan I2V/T2V Differentiation *(complete)* ✅
+### v0.2.3-ex — Per-group Trigger Word Rows *(complete)* ✅
 
-### v0.8.0-ex — Trigger Word Consolidation *(complete)* ✅
+### v0.2.4-ex — Trigger Word Consolidation *(current)*
 
-### v0.8.1-ex — Trigger Word Bugfixes & Resilience *(complete)* ✅
+### v0.3.0-ex — Stabilization *(planned)*
+- A1111-specific path handling improvements
+- Forge Classic quirks and fixes
+- Testing on different Gradio 3.x minor versions
 
-### v0.8.2-ex — Checkpoint SHA256 Cache Sync *(complete)* ✅
-
-### v0.9.0-ex — Advanced Curation *(planned)*
+### v0.4.0-ex — Extended Features *(planned)*
 - Saved search presets
 - Favorites in creator/user search
 - Additional browser quality-of-life improvements
@@ -116,21 +117,16 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 ## 🎯 Features
 
 > ⭐ = exclusive to Neo
+- **Trigger word groups stay grouped** — large update scans no longer flatten the group layout from the CivitAI API.
+- **Safer metadata updates** — `Update model info & tags` keeps grouped `trainedWords` intact in the local cache.
+- **API retry resilience** — temporary 50x errors use exponential backoff so update loops do not fail silently.
+- **Quick delete safety** — card delete is blocked when multiple installed versions exist, and the Browser asks you to choose the exact installed version first.
+- **Hybrid local loading fallback** — installed files that cannot be matched on CivitAI remain visible as local-only cards in the Browser.
 
 ### 🔍 Browse & Search
 
 - Browse CivitAI directly inside the WebUI — no tab switching
 - Search by model name, tag, or username
-- Filter by content type: Checkpoint, LORA, VAE, ControlNet, Upscaler, TextualInversion, Wildcards, Workflows, and more
-- Filter by base model: SD 1.x, SDXL, Pony, Illustrious, FLUX, Wan, Qwen, NoobAI, Lumina, and more — list auto-updated from CivitAI at startup ⭐
-- Sort by: Highest Rated, Most Downloaded, Newest, Most Liked, Most Discussed
-- Filter by time period: Day, Week, Month, Year, All Time
-- NSFW toggle, liked-only filter, hide installed models, hide banned creators
-- Exact search mode
-- Search settings persist across restarts ⭐
-
-### 📥 Download
-
 - Download any model, version, and file variant directly
 - High-speed multi-connection downloads via Aria2 (optional, on by default)
 - Download queue — multiple downloads run in sequence without blocking the UI
@@ -282,24 +278,32 @@ Custom categories can be defined in **Settings → Model Organization** using a 
 
 ## 📄 Credits
 
-- **[sd-civitai-browser](https://github.com/Vetchems/sd-civitai-browser)** by Vetchems — original project
-- **[sd-civitai-browser-plus](https://github.com/BlafKing/sd-civitai-browser-plus)** by BlafKing — foundation for this fork
-- **[sd-civitai-browser-plus](https://github.com/anxety-solo/sd-civitai-browser-plus)** by anxety-solo — UI redesign and quality improvements
-- **[sd-webui-civbrowser](https://github.com/SignalFlagZ/sd-webui-civbrowser)** by SignalFlagZ — creator management inspiration
-- **[Forge Neo](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo)** by Haoming02
+### v0.1.0-ex — Gradio 3 Port *(complete)* ✅
 
----
+### v0.2.0-ex — Stability & Feature Sync *(complete)* ✅
 
-## 📜 License
+### v0.2.1-ex — Wildcard Improvements *(complete)* ✅
 
-MIT — see [LICENSE](LICENSE)
+### v0.2.2-ex — Startup Crash Fix *(complete)* ✅
 
----
+### v0.2.3-ex — Per-group Trigger Word Rows *(complete)* ✅
 
-<div align="center">
+### v0.2.4-ex — Trigger Word Consolidation *(current)*
+
+### v0.3.0-ex — Stabilization *(planned)*
+- A1111-specific path handling improvements
+- Forge Classic quirks and fixes
+- Testing on different Gradio 3.x minor versions
+- A1111-specific path handling improvements
+### v0.4.0-ex — Extended Features *(planned)*
+- Testing on different Gradio 3.x minor versions
+
+### v0.4.0-ex — Extended Features *(planned)*
 
 Made with ❤️ for the Stable Diffusion community
 
-**[Report Bug](https://github.com/eduardoabreu81/sd-civitai-browser-neo/issues)** • **[Request Feature](https://github.com/eduardoabreu81/sd-civitai-browser-neo/issues)** • **[Discussions](https://github.com/eduardoabreu81/sd-civitai-browser-neo/discussions)** • **[☕ Ko-fi](https://ko-fi.com/eduardoabreu81)**
-
-</div>
+### v1.0.0-ex — First Stable Release *(planned)*
+- All known issues resolved
+- Full A1111/Forge Classic compatibility guarantee
+- All known issues resolved
+- Full A1111/Forge Classic compatibility guarantee
