@@ -39,12 +39,6 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 - **Quick delete protection** — if the same model has more than one installed version, the card delete shortcut stops and asks you to choose the exact installed version in the Browser panel.
 - **Hybrid local browser loading** — when installed files cannot be matched on CivitAI, they stay visible as local-only cards instead of being dropped from the Browser.
 
-### v0.8.2-ex — Checkpoint SHA256 Cache Sync
-
-- **Automatic cache sync after checkpoint download** — when a checkpoint download finishes successfully, its SHA256 is now written to WebUI cache immediately.
-- **Manual sync button in Update Models** — new action `Sync checkpoint SHA256 cache` scans local checkpoints and adds only missing SHA256 entries to WebUI cache.
-- **Local checkpoint hash registry** — new local registry tracks synced checkpoints and prunes stale entries when files are deleted from disk.
-
 ---
 
 ## 📖 Changelog
@@ -114,6 +108,8 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 ### v0.8.1-ex — Trigger Word Bugfixes & Resilience *(complete)* ✅
 
 ### v0.8.2-ex — Checkpoint SHA256 Cache Sync *(complete)* ✅
+
+### v0.8.3-ex — Safer Delete Flow & Hybrid Local Browser *(complete)* ✅
 
 ### v0.9.0-ex — Advanced Curation *(planned)*
 - Saved search presets
