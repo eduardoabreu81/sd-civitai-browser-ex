@@ -33,6 +33,12 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 🆕 What's New
 
+### v0.8.3-ex — Safer Delete Flow & Hybrid Local Browser
+
+- **Installed versions stay selectable** — when a model has an installed version, the Browser selects it by default even if another version is newer.
+- **Quick delete protection** — if the same model has more than one installed version, the card delete shortcut stops and asks you to choose the exact installed version in the Browser panel.
+- **Hybrid local browser loading** — when installed files cannot be matched on CivitAI, they stay visible as local-only cards instead of being dropped from the Browser.
+
 ### v0.8.2-ex — Checkpoint SHA256 Cache Sync
 
 - **Automatic cache sync after checkpoint download** — when a checkpoint download finishes successfully, its SHA256 is now written to WebUI cache immediately.
@@ -42,6 +48,11 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 ---
 
 ## 📖 Changelog
+
+### v0.8.3-ex — Safer Delete Flow & Hybrid Local Browser
+- Browser version selector now prefers installed versions so delete actions remain available even when updates exist.
+- Card quick-delete is blocked when a model has multiple installed versions, preventing accidental deletion of the wrong file.
+- Local Browser loading keeps unmatched installed files visible as local-only entries while still using CivitAI data for matched models.
 
 ### v0.8.2-ex — Checkpoint SHA256 Cache Sync
 - Added automatic SHA256 cache sync for checkpoints right after successful download completion.

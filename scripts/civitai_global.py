@@ -26,7 +26,7 @@ def init():
     if not os.path.exists(config_folder):
         os.mkdir(config_folder)
 
-    global download_queue, last_version, cancel_status, recent_model, last_url, json_data, json_info, main_folder, previous_inputs, download_fail, sortNewest, isDownloading, scan_files, from_update_tab, url_list, print, subfolder_json, organization_backup_file, last_organization_backup
+    global download_queue, last_version, cancel_status, recent_model, last_url, json_data, json_info, main_folder, previous_inputs, download_fail, sortNewest, isDownloading, scan_files, from_update_tab, url_list, print, subfolder_json, organization_backup_file, last_organization_backup, local_browser_fallback_items
 
     cancel_status = None
     recent_model = None
@@ -57,6 +57,7 @@ def init():
     download_fail = False
     sortNewest = False
     isDownloading = False
+    local_browser_fallback_items = []
 
 _print = print
 def print(print_message):

@@ -462,11 +462,13 @@ def model_list_html(json_data):
         ## Note: Sensitive check for updates by `name_match`... (It is possible that an outdated version of the model will not be marked as outdated)
         installstatus = ''
         installed_file_sha256 = None  # Track SHA256 of installed file for delete functionality
+        installed_versions_count = 0
         model_versions = item.get('modelVersions', [])
         if model_versions:
             precise_check = getattr(opts, 'precise_version_check', True)
             installed_map, available_map = {}, {}  # family → list of version parts
             installed_all, available_all = [], []  # all versions (no family grouping)
+            installed_versions_found = set()
 
             # --- Collect version and installation info ---
             for version in model_versions:
@@ -489,11 +491,14 @@ def model_list_html(json_data):
                         # Store SHA256 of first installed file found (for delete button)
                         if not installed_file_sha256:
                             installed_file_sha256 = file_sha256
+                        installed_versions_found.add(version_name)
                         if precise_check and family:
                             installed_map.setdefault(family, []).append(version_parts)
                         else:
                             installed_all.append(version_parts)
                         break
+
+            installed_versions_count = len(installed_versions_found)
 
             # Check installed
             has_installed = bool(installed_map or installed_all)
@@ -575,8 +580,8 @@ def model_list_html(json_data):
             sha256_attr = f'data-sha256="{installed_file_sha256}"' if installed_file_sha256 else ''
             card_html += (
                 f'<div class="delete-button-container">'
-                f'<button class="delete-model-btn" {sha256_attr} data-model-name="{model_name_js}" '
-                f'onclick="deleteInstalledModel(event, \'{model_string}\', \'{installed_file_sha256 or ""}\')" title="Delete model">'
+                f'<button class="delete-model-btn" {sha256_attr} data-model-name="{model_name_js}" data-installed-count="{installed_versions_count}" '
+                f'onclick="deleteInstalledModel(event, \'{model_string}\', \'{installed_file_sha256 or ""}\', {installed_versions_count})" title="Delete model">'
                 f'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">'
                 f'<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>'
                 f'</svg>'
@@ -588,8 +593,8 @@ def model_list_html(json_data):
             sha256_attr = f'data-sha256="{installed_file_sha256}"' if installed_file_sha256 else ''
             card_html += (
                 f'<div class="outdated-card-actions">'
-                f'<button class="delete-model-btn" {sha256_attr} data-model-name="{model_name_js}" '
-                f'onclick="deleteInstalledModel(event, \'{model_string}\', \'{installed_file_sha256 or ""}\')" title="Delete model">'
+                f'<button class="delete-model-btn" {sha256_attr} data-model-name="{model_name_js}" data-installed-count="{installed_versions_count}" '
+                f'onclick="deleteInstalledModel(event, \'{model_string}\', \'{installed_file_sha256 or ""}\', {installed_versions_count})" title="Delete model">'
                 f'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">'
                 f'<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>'
                 f'</svg>'
@@ -842,8 +847,21 @@ def initial_model_page(content_type=None, sort_type=None, period_type=None, use_
     else:
         api_url = gl.url_list.get(current_page)
         gl.from_update_tab = True
-        if api_url and not api_url.startswith('sha256_search_'):
+        if api_url and api_url.startswith('local_only://'):
+            gl.json_data = {'items': [], 'metadata': {}}
+        elif api_url and not api_url.startswith('sha256_search_'):
             gl.json_data = request_civit_api(api_url)
+
+        fallback_items = getattr(gl, 'local_browser_fallback_items', [])
+        if isinstance(gl.json_data, dict) and fallback_items and current_page == 1:
+            existing_ids = {item.get('id') for item in gl.json_data.get('items', [])}
+            merged_items = list(gl.json_data.get('items', []))
+            for fallback_item in fallback_items:
+                if fallback_item.get('id') not in existing_ids:
+                    merged_items.append(fallback_item)
+            gl.json_data['items'] = merged_items
+            if 'metadata' not in gl.json_data or not isinstance(gl.json_data['metadata'], dict):
+                gl.json_data['metadata'] = {}
 
     max_page = 1
     model_list = []
@@ -1028,8 +1046,10 @@ def update_model_versions(model_id, json_input=None, base_filter=None):
                 display_version_names.append(name)
             default_installed = next((name for name in display_version_names if '[Installed]' in name), None)
 
-            # If a base_filter is active, prefer the newest version matching the filter
-            if base_filter:
+            # Always prefer an installed version when one exists so delete actions stay available.
+            if default_installed:
+                default_value = default_installed
+            elif base_filter:
                 filter_normalized = [b.lower() for b in base_filter]
                 default_value = None
                 for i, v in enumerate(version_names):
@@ -1038,9 +1058,9 @@ def update_model_versions(model_id, json_input=None, base_filter=None):
                         default_value = display_version_names[i]
                         break
                 if default_value is None:
-                    default_value = default_installed or (display_version_names[0] if display_version_names else None)
+                    default_value = display_version_names[0] if display_version_names else None
             else:
-                default_value = default_installed or (display_version_names[0] if display_version_names else None)
+                default_value = display_version_names[0] if display_version_names else None
 
             return gr.update(choices=display_version_names, value=default_value, interactive=True)  # Version List
 
@@ -1138,6 +1158,7 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
         version_id = None
         for item in api_data['items']:
             if int(item['id']) == int(model_id):
+                is_local_only = bool(item.get('local_only'))
                 content_type = item['type']
                 if content_type == 'LORA':
                     is_LORA = True
@@ -1240,10 +1261,13 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
                                 model_folder = os.path.join(contenttype_folder('TextualInversion'))
 
                 model_url = selected_version.get('downloadUrl', '')
-                model_main_url = f"https://civitai.com/models/{item['id']}"
+                model_main_url = f"https://civitai.com/models/{item['id']}" if not is_local_only else ''
 
-                url = f"https://civitai.com/api/v1/model-versions/{selected_version['id']}"
-                api_version = request_civit_api(url)
+                if is_local_only:
+                    api_version = {'images': []}
+                else:
+                    url = f"https://civitai.com/api/v1/model-versions/{selected_version['id']}"
+                    api_version = request_civit_api(url)
 
                 ## === ANXETY EDITs ===
                 # --- HTML Generation ---
@@ -1412,12 +1436,20 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
                 )
 
                 # Build header block
-                model_page = (
-                    '<div class="model-page-line">'
-                        '<span class="page-label">Model Page:</span>'
-                        f'<a href={model_main_url}?modelVersionId={selected_version["id"]} target="_blank">{escape(str(model_name))}</a>'
-                    '</div>'
-                )
+                if is_local_only:
+                    model_page = (
+                        '<div class="model-page-line">'
+                            '<span class="page-label">Model Source:</span>'
+                            f'<span>{escape(str(model_name))} (Local file only)</span>'
+                        '</div>'
+                    )
+                else:
+                    model_page = (
+                        '<div class="model-page-line">'
+                            '<span class="page-label">Model Page:</span>'
+                            f'<a href={model_main_url}?modelVersionId={selected_version["id"]} target="_blank">{escape(str(model_name))}</a>'
+                        '</div>'
+                    )
 
                 if not creator or model_uploader == 'User not found':
                     uploader_page = (
