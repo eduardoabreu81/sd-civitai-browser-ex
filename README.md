@@ -33,15 +33,22 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 🆕 What's New
 
-### v0.2.4-ex — Trigger Word Consolidation
+### v0.2.5-ex — CivitAI Domain Support
 
-- Consolidated trigger words from `.safetensors` metadata, local `.json` `activation text`, and API `trainedWords`
-- Added case-insensitive deduplication while preserving original order
-- Model info now uses local consolidated trigger words first, with API fallback when local cache is unavailable
+- **Full support for the new CivitAI domain split** — CivitAI now separates SFW content (`civitai.com`) from the complete catalog (`civitai.red`). The extension adapts automatically so nothing breaks.
+- **Paste any CivitAI link** — model links from both `civitai.com` and `civitai.red` now open the correct model instantly when pasted into the search box.
+- **New "SFW only" setting** — a simple checkbox in Settings lets you restrict all links and API calls to `civitai.com` if you prefer. Off by default, so the full catalog stays accessible without extra steps.
+- **Smart links in model previews** — "Model Page" and creator profile links in the preview panel now always point to the right domain, whether the model is SFW or NSFW.
 
 ---
 
 ## 📖 Changelog
+
+### v0.2.5-ex — CivitAI Domain Support
+- Added centralized domain helper to replace all hardcoded `civitai.com` URLs across the extension.
+- Added `civitai_sfw_only` checkbox setting (default: off → `civitai.red`) to toggle between domains.
+- Fixed search-box direct-link parser to recognize both `civitai.com` and `civitai.red` URLs.
+- Updated all API calls, model page links, uploader profile links, `Referer` headers, and JSON sidecar `modelPageURL` fields to use the configured domain.
 
 ### v0.2.4-ex — Trigger Word Consolidation
 - Consolidated trigger words from `.safetensors` metadata, local `.json` `activation text`, and API `trainedWords`
@@ -94,7 +101,9 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ### v0.2.3-ex — Per-group Trigger Word Rows *(complete)* ✅
 
-### v0.2.4-ex — Trigger Word Consolidation *(current)*
+### v0.2.4-ex — Trigger Word Consolidation *(complete)* ✅
+
+### v0.2.5-ex — CivitAI Domain Support *(current)*
 
 ### v0.3.0-ex — Stabilization *(planned)*
 - A1111-specific path handling improvements
