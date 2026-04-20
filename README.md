@@ -33,7 +33,7 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 🆕 What's New
 
-### v0.3.0-ex — CivitAI Domain Support
+### v0.4.0-ex — CivitAI Domain Support
 
 - **Full support for the new CivitAI domain split** — CivitAI now separates SFW content (`civitai.com`) from the complete catalog (`civitai.red`). The extension adapts automatically so nothing breaks.
 - **Paste any CivitAI link** — model links from both `civitai.com` and `civitai.red` now open the correct model instantly when pasted into the search box.
@@ -44,7 +44,7 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 📖 Changelog
 
-### v0.3.0-ex — CivitAI Domain Support
+### v0.4.0-ex — CivitAI Domain Support
 - Added centralized domain helper to replace all hardcoded `civitai.com` URLs across the extension.
 - Added `civitai_sfw_only` checkbox setting (default: off → `civitai.red`) to toggle between domains.
 - Fixed search-box direct-link parser to recognize both `civitai.com` and `civitai.red` URLs.
@@ -103,7 +103,7 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ### v0.2.4-ex — Trigger Word Consolidation *(complete)* ✅
 
-### v0.3.0-ex — CivitAI Domain Support *(current)*
+### v0.4.0-ex — CivitAI Domain Support *(current)*
 
 ### v0.3.0-ex — Stabilization *(planned)*
 - A1111-specific path handling improvements
