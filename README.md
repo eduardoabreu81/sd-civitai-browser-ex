@@ -24,9 +24,6 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 - [Roadmap](#️-roadmap)
 - [Features](#-features)
 - [Installation](#-installation)
-- [Auto-Organization System](#-auto-organization-system)
-- [Dashboard & Statistics](#-dashboard--statistics)
-- [Supported Model Types](#-supported-model-types)
 - [Credits](#-credits)
 
 ---
@@ -130,80 +127,55 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ---
 
-## 🎯 Features
-
-- **Trigger word groups stay grouped** — large update scans no longer flatten the group layout from the CivitAI API.
-- **Safer metadata updates** — `Update model info & tags` keeps grouped `trainedWords` intact in the local cache.
-- **API retry resilience** — temporary 50x errors use exponential backoff so update loops do not fail silently.
-- **Quick delete safety** — card delete is blocked when multiple installed versions exist, and the Browser asks you to choose the exact installed version first.
-- **Hybrid local loading fallback** — installed files that cannot be matched on CivitAI remain visible as local-only cards in the Browser.
+## 🚀 Features
 
 ### 🔍 Browse & Search
 
-- Browse CivitAI directly inside the WebUI — no tab switching
-- Search by model name, tag, or username
-- Download any model, version, and file variant directly
-- High-speed multi-connection downloads via Aria2 (optional, on by default)
+- Browse CivitAI directly inside your WebUI — no tab switching needed
+- Filter by content type, base model, sort order, time period, and NSFW
+- Base model list is auto-updated from CivitAI API at startup
+- Favorite or ban creators with instant card filtering
+- Search settings persist across restarts
+
+### 📥 Download
+
+- Download any model, version, and file in one click
+- Aria2 high-speed multi-connection downloads
 - Download queue — multiple downloads run in sequence without blocking the UI
-- Queue persistence — survives session disconnects with one-click restore
-- Cancel individually or clear the entire queue
-- Folder automatically set based on content type
-- Custom sub-folders per download
-- API key support for early access and private models
-- Proxy support for restricted regions
+- Queue persistence — restore banner after browser disconnect; re-queue everything with one click
+- SHA256 integrity check — every download verified; corrupted files caught and removed automatically
+- Instant batch enqueue — queuing 10 models is as fast as queuing 1
+- Cancel downloads individually or all at once
 
 ### 🔄 Model Updates
 
-- Orange border on cards with a newer version available
-- Batch update — select multiple outdated models and download all at once
-- Version comparison by model family (not just version name)
-- Retention policy on update: keep, move to trash, or replace
-- Dashboard shows outdated model counts after scanning
+- Outdated card detection — orange border on cards with a newer version available
+- Batch update from cards: select multiple and download all at once
+- Retention policy on update: keep, trash, or replace
+- Audit log: `ex_update_audit.jsonl`
 
 ### 🗂️ Auto-Organization
 
-- New downloads automatically sorted into subfolders by base model (SDXL/, Pony/, FLUX/, etc.)
-- Organize your existing collection in one click
-- Validate organization — read-only check showing correct / misplaced / no-metadata per file
-- Fix misplaced files in one click — automatic backup created first
-- One-click rollback (keeps last 5 backups)
-- Custom folder mapping in Settings
-- Associated files (`.json`, `.png`, `.txt`) always move with the model
-
-### 🖼️ Model Info & Preview
-
-- Model info panel with name, version, base model, type, tags, permissions, and description
-- Sample images with "Send to txt2img" — fills prompt, negative, sampler, steps, CFG
-- Individual meta field buttons — send just one field; Shift+click to append
-- "➕ Add to prompt" in the model overlay — appends trigger words directly; auto-inserts LoRA syntax
-- SHA256 hash shown in version info — click to select
-- Video preview on hover for cards with video samples
-- Save model info and images locally
+- Automatically sort new downloads into subfolders by architecture (SDXL/, Pony/, Illustrious/, etc.)
+- Organize your entire existing collection in one click
+- Validate organization — read-only per-file scan
+- Fix misplaced files — moves flagged models with automatic backup
+- Full backup & one-click rollback (keeps last 5 backups)
+- Custom category patterns via JSON in Settings
 
 ### 📊 Dashboard
 
-- Disk usage by category and architecture
-- Pie chart with percentage breakdown
-- Top 10 largest files and categories
-- Orphan file detection (optional)
-- Export to CSV or JSON
-- Update summary after scanning
+- Disk usage broken down by model type and architecture
+- Pie chart, progress bars, percentage breakdown
+- Top 10 largest files and top categories
+- Export CSV / JSON
 
-### 🃏 Model Cards
+### 🔒 Safety & Integrity
 
-- Color-coded borders: aquamarine = installed, orange = outdated, gold = early access / favorite creator
-- Color legend bar always visible above the grid
-- NSFW, Early Access (💎), and type badges
-- Configurable tile size
-- Quick delete from the card
-- Multi-select checkboxes for batch download
-- Favorite (⭐) and ban (🚫) creator directly from the card
-
-### 🔒 Safety
-
-- Deleted models go to the OS recycle bin by default (configurable)
-- Filename sanitization — removes illegal characters automatically
-- Filename length capped to prevent filesystem errors
+- Deleted models go to OS Trash by default
+- SHA256 post-download integrity check
+- Filename length capped at 246 UTF-8 bytes (Linux safe)
+- Illegal character sanitization
 
 ---
 
@@ -214,80 +186,7 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 3. Paste: `https://github.com/eduardoabreu81/sd-civitai-browser-ex`
 4. Click **Install** and reload the WebUI
 
-> ⚠️ This extension requires **A1111** or **Forge Classic** (Gradio 3.x).
-
----
-
-## 📁 Auto-Organization System
-
-The organization system sorts your models into subfolders based on their base model type, using the metadata saved alongside each file.
-
-**Before:**
-```
-models/Lora/
-├── model1.safetensors  (SDXL)
-├── model2.safetensors  (Pony)
-└── model3.safetensors  (FLUX)
-```
-
-**After:**
-```
-models/Lora/
-├── SDXL/model1.safetensors
-├── Pony/model2.safetensors
-└── FLUX/model3.safetensors
-```
-
-### Auto-organize new downloads
-Enable **"Auto-organize downloads"** in Settings → Model Organization.
-
-### Organize existing models
-Go to **Update Models** tab → select types → click **"📁 Organize models into subfolders"**.
-
-### Safety
-- Automatic backup before any operation
-- One-click undo
-- Conflict detection (skips files that already exist at destination)
-
----
-
-## 📊 Dashboard & Statistics
-
-Go to the **Dashboard** tab, select the content types you want to analyze, and click **"📊 Generate Dashboard"**.
-
-You'll see:
-- Total file count and disk usage
-- Breakdown by category and architecture (Checkpoints and LORAs split by Pony, SDXL, FLUX, etc.)
-- Visual progress bars and pie chart
-- Top 10 largest files and categories
-- Optional orphan file detection
-
-Results can be exported as CSV or JSON.
-
----
-
-## 🎨 Supported Model Types
-
-| Architecture | Notes |
-|---|---|
-| SD 1.x / SD 2.x | Classic Stable Diffusion |
-| SDXL | Base SDXL and derivatives |
-| Pony | Pony V6 and variants |
-| Illustrious | Illustrious XL |
-| NoobAI | NoobAI (Illustrious-based) |
-| FLUX | Dev, Krea, Kontext, Klein |
-| Wan | Wan 2.2 — text/image to video |
-| Qwen | Qwen-Image, Qwen-Image-Edit |
-| Z-Image | Z-Image, Z-Image Turbo |
-| Lumina | Lumina-Image 2.0 |
-| Anima | Anima |
-| Chroma | Chroma1-HD |
-| Cascade | Stable Cascade |
-| SVD | Stable Video Diffusion |
-| Hunyuan | Hunyuan |
-| Other | Catch-all; fully configurable |
-
-Custom categories can be defined in **Settings → Model Organization** using a simple JSON pattern list.
+**Requirements:** A1111 or Forge Classic or any Gradio 3.x SD WebUI · Python 3.10+
 
 ---
 
