@@ -33,23 +33,41 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 🆕 What's New
 
-### v0.3.0-ex — CivitAI Domain Support
+### v0.3.0-ex — CivitAI Domain Support & Accumulated Fixes
 
+> This release aggregates several improvements that were delivered incrementally since v0.2.4-ex, now formally versioned as v0.3.0-ex.
+
+**New in this release:**
 - **Full support for the new CivitAI domain split** — CivitAI now separates SFW content (`civitai.com`) from the complete catalog (`civitai.red`). The extension adapts automatically so nothing breaks.
 - **Paste any CivitAI link** — model links from both `civitai.com` and `civitai.red` now open the correct model instantly when pasted into the search box.
 - **New "SFW only" setting** — a simple checkbox in Settings lets you restrict all links and API calls to `civitai.com` if you prefer. Off by default, so the full catalog stays accessible without extra steps.
 - **Smart links in model previews** — "Model Page" and creator profile links in the preview panel now always point to the right domain, whether the model is SFW or NSFW.
+
+**Also included since v0.2.4-ex:**
+- **Resilient API calls** — transient server errors now trigger automatic retries with exponential backoff instead of failing silently.
+- **Checkpoint SHA256 cache sync** — checkpoints downloaded or updated through the extension now sync their hashes into Forge's cache automatically; a manual sync button is available in Update Models.
+- **Safer delete flow** — the Browser panel now prioritizes installed versions in the dropdown, quick-delete is blocked when multiple versions of the same model are installed, and local-only files remain visible even when CivitAI has no match for them.
+- **Trigger word improvements** — trigger word groups are now preserved natively in local cache, and per-group rows in the model panel show individual copy and add-to-prompt buttons.
 
 ---
 
 ## 📖 Changelog
 
 ### v0.3.0-ex — CivitAI Domain Support & Accumulated Fixes
+
+This release formalizes multiple improvements that were delivered incrementally since v0.2.4-ex:
+
+**CivitAI Domain Support (new in this release):**
 - Added centralized domain helper to replace all hardcoded `civitai.com` URLs across the extension.
 - Added `civitai_sfw_only` checkbox setting (default: off → `civitai.red`) to toggle between domains.
 - Fixed search-box direct-link parser to recognize both `civitai.com` and `civitai.red` URLs.
 - Updated all API calls, model page links, uploader profile links, `Referer` headers, and JSON sidecar `modelPageURL` fields to use the configured domain.
-- Added exponential backoff retry for transient API errors; trigger word group preservation in local cache; checkpoint SHA256 cache sync with Forge; safer delete flow with installed-version priority and multi-version failsafe; hybrid local-only card fallback.
+
+**Accumulated fixes since v0.2.4-ex:**
+- Added exponential backoff retry for transient API errors (50x, timeouts).
+- Added trigger word group preservation in local `.json` sidecar cache.
+- Added checkpoint SHA256 cache sync with Forge on download and manual scan.
+- Added safer delete flow: installed-version priority in Browser dropdown, multi-version quick-delete failsafe, and hybrid local-only card fallback for unmatched files.
 
 ### v0.2.4-ex — Trigger Word Consolidation
 - Consolidated trigger words from `.safetensors` metadata, local `.json` `activation text`, and API `trainedWords`
