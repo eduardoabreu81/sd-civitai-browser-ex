@@ -30,6 +30,18 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 🆕 What's New
 
+### v0.4.0-ex — Download Reliability & Update Mode Improvements
+
+- **Faster batch downloads** — the queue now processes multiple items in a single internal loop, eliminating delays between downloads caused by Gradio event round-trips.
+- **Smarter integrity checks** — if a downloaded file fails SHA256 verification, the extension automatically re-queries the CivitAI API to detect silent file updates by the author. If the hash matches the new API value, the file is accepted and metadata is updated instead of failing.
+- **Defensive hash search** — searching by SHA256 that returns unexpected response structures no longer crashes; the code safely handles lists and missing fields.
+- **Update Mode isolation** — when loading outdated models into the Browser, Refresh and page-slider triggers no longer pull the Browser tab's filters into the Update Mode view. Update Mode state is now fully isolated.
+- **Outdated list sorted by recency** — the update list is now ordered by file modification time (newest first), making it easier to prioritize which models to update first.
+- **SHA256 verification speed-up** — post-download hash check now uses an 8 MB read buffer instead of 1 MB.
+- **Re-trigger protection** — fixed a race condition where the Queue Trigger could fire twice for the same download, causing duplicate processing.
+- **Better card sync** — card status updates are now queued when the user is on another tab and applied automatically when they return to the Browser tab.
+- **More stable observers** — MutationObservers now target `document.documentElement` instead of `document.body`, preventing rare crashes during early DOM initialization.
+
 ### v0.3.0-ex — CivitAI Domain Support & Quality Improvements
 
 - **Full support for the new CivitAI domain split** — CivitAI now separates SFW content (`civitai.com`) from the complete catalog (`civitai.red`). The extension adapts automatically so nothing breaks.
@@ -44,6 +56,17 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 ---
 
 ## 📖 Changelog
+
+### v0.4.0-ex — Download Reliability & Update Mode Improvements
+- Batch download internal loop: process entire queue in one Gradio event to eliminate inter-item gaps.
+- SHA256 silent-update detection: on mismatch, re-query `/api/v1/model-versions/{id}` to accept author-updated files.
+- Defensive SHA256 search: handle list responses and missing `modelId` gracefully.
+- Update Mode filter isolation: `initial_model_page` respects `update_mode` and ignores Browser-tab filters when active.
+- Outdated models sorted by file modification time (descending) for easier prioritization.
+- Increased SHA256 verification buffer from 1 MB to 8 MB.
+- Queue Trigger re-trigger fix: return `gr.update()` without value when queue is empty.
+- Card update polling: pending updates are applied when user returns to the Browser tab.
+- MutationObserver stability: observe `document.documentElement` instead of `document.body`.
 
 ### v0.3.0-ex — CivitAI Domain Support & Accumulated Fixes
 
@@ -112,9 +135,11 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ### v0.2.4-ex — Trigger Word Consolidation *(complete)* ✅
 
-### v0.3.0-ex — CivitAI Domain Support *(current)*
+### v0.3.0-ex — CivitAI Domain Support *(complete)* ✅
 
-### v0.4.0-ex — Extended Features *(planned)*
+### v0.4.0-ex — Download Reliability & Update Mode Improvements *(current)*
+
+### v0.5.0-ex — Extended Features *(planned)*
 - Saved search presets
 - Favorites in creator/user search
 - Additional browser quality-of-life improvements
