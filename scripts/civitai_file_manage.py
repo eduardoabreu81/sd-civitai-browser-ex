@@ -1904,8 +1904,9 @@ def version_match(file_paths, api_response, log=False):
     updated_models = []
     outdated_models = []
 
-    # === 1. Collecting installed SHA256 ===
+    # === 1. Collecting installed SHA256 + mtime mapping ===
     installed_hashes = set()
+    sha_to_mtime = {}
     for path in file_paths:
         json_path = f"{os.path.splitext(path)[0]}.json"
         data = _api.safe_json_load(json_path)
@@ -1913,6 +1914,10 @@ def version_match(file_paths, api_response, log=False):
             sha = data.get('sha256', '')
             if sha:
                 installed_hashes.add(sha.upper())
+                sha_to_mtime[sha.upper()] = os.path.getmtime(path)
+        # fallback: use model file mtime if json sidecar has no sha256
+        if not data or not data.get('sha256'):
+            sha_to_mtime.setdefault('', {})  # dummy, will be ignored in lookups
 
     if log:
         print(f"[LOG] {len(installed_hashes)} installed model hashes found")
@@ -1997,9 +2002,24 @@ def version_match(file_paths, api_response, log=False):
 
         model_type = model.get('type', 'Unknown')
         if has_outdated:
-            outdated_models.append((f"&ids={model_id}", model_name, model_type))
+            # Determine mtime for this outdated model by looking up installed SHA256
+            model_mtime = 0
+            for ver in model_versions:
+                for fe in ver.get('files', []):
+                    sha = fe.get('hashes', {}).get('SHA256', '').upper()
+                    if sha in sha_to_mtime:
+                        model_mtime = sha_to_mtime[sha]
+                        break
+                if model_mtime:
+                    break
+            outdated_models.append((f"&ids={model_id}", model_name, model_type, model_mtime))
         else:
             updated_models.append((f"&ids={model_id}", model_name, model_type))
+
+    # Sort outdated models by file modification time (most recent first)
+    outdated_models.sort(key=lambda x: x[3], reverse=True)
+    # Strip mtime before returning to keep tuple shape consistent
+    outdated_models = [(x[0], x[1], x[2]) for x in outdated_models]
 
     return updated_models, outdated_models
 

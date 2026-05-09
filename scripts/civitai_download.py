@@ -155,6 +155,7 @@ def create_model_item(dl_url, model_filename, install_path, model_name, version_
         'version_name': version_name,
         'model_sha256': model_sha256,
         'model_id': model_id,
+        'version_id': version_id,
         'create_json': create_json,
         'model_json': model_json,
         'model_versions': None,        # fetched lazily in download_create_thread
@@ -782,7 +783,7 @@ def download_file_old(url, file_path, model_id, progress=gr.Progress() if queue 
                                 if progress != None:
                                     progress(0, desc='Download cancelled.')
                                 return
-                            response = requests.get(download_link, headers=headers, stream=True, timeout=10, proxies=proxies, verify=ssl)
+                            response = requests.get(download_link, headers=headers, stream=True, timeout=30, proxies=proxies, verify=ssl)
                             if response.status_code == 404:
                                 if progress != None:
                                     progress(0, desc=f"Encountered an error during download of: {file_name_display}, file is not found on CivitAI servers.")
@@ -864,189 +865,231 @@ def download_file_old(url, file_path, model_id, progress=gr.Progress() if queue 
 
 def download_create_thread(download_finish, queue_trigger, progress=gr_progress_threadable() if queue else None):
     global current_count
-    current_count += 1
 
     if not gl.download_queue:
         return (
             gr.update(),  # Download Progress HTML
             gr.update(value=None),  # Current Model
             gr.update(value=random_number(download_finish)),  # Download Finish Trigger
-            gr.update(value=queue_trigger),  # Queue Trigger
+            gr.update(),  # Queue Trigger — no update to prevent re-trigger loop
             gr.update(interactive=False)  # Cancel All Button
         )
 
-    item = gl.download_queue[0]
-    gl.cancel_status = False
-    use_aria2 = getattr(opts, 'use_aria2', True)
-    unpack_zip = getattr(opts, 'unpack_zip', False)
-    save_all_images = getattr(opts, 'auto_save_all_img', False)
-    gl.recent_model = item['model_name']
-    gl.last_version = item['version_name']
+    card_name = None
+    # Process the entire queue in an internal loop to eliminate gaps
+    # caused by Gradio event queue round-trips between items.
+    while gl.download_queue:
+        current_count += 1
+        item = gl.download_queue[0]
+        gl.cancel_status = False
+        gl.download_fail = False
+        use_aria2 = getattr(opts, 'use_aria2', True)
+        unpack_zip = getattr(opts, 'unpack_zip', False)
+        save_all_images = getattr(opts, 'auto_save_all_img', False)
+        gl.recent_model = item['model_name']
+        gl.last_version = item['version_name']
+        debug_print(f"[Download] Starting item {current_count}/{total_count}: '{item['model_name']}' v'{item['version_name']}' → {item['install_path']}")
 
-    # #2 Lazy API fetch: deferred from enqueue time for batch performance
-    if not item.get('_api_ready'):
-        _lazy_versions = _api.update_model_versions(item['model_id'])
-        if _lazy_versions:
-            item['model_versions'] = _lazy_versions
-        try:
-            _lazy_result = _api.update_model_info(None, (item['model_versions'] or {}).get('value'), False, item['model_id'])
-            item['preview_html'] = _lazy_result[0].get('value', '') if isinstance(_lazy_result[0], dict) else ''
-            item['existing_path'] = (_lazy_result[11].get('value') if isinstance(_lazy_result[11], dict) else None) or item['install_path']
-        except Exception as _e:
-            debug_print(f"[Lazy fetch] Could not load API data for {item['model_name']}: {_e}")
-        item['_api_ready'] = True
+        # #2 Lazy API fetch: deferred from enqueue time for batch performance
+        if not item.get('_api_ready'):
+            debug_print(f"[Download] Lazy API fetch for '{item['model_name']}' (id={item['model_id']})")
+            _lazy_versions = _api.update_model_versions(item['model_id'])
+            if _lazy_versions:
+                item['model_versions'] = _lazy_versions
+                debug_print(f"[Download] Loaded model versions for '{item['model_name']}'")
+            try:
+                _lazy_result = _api.update_model_info(None, (item['model_versions'] or {}).get('value'), False, item['model_id'])
+                item['preview_html'] = _lazy_result[0].get('value', '') if isinstance(_lazy_result[0], dict) else ''
+                item['existing_path'] = (_lazy_result[11].get('value') if isinstance(_lazy_result[11], dict) else None) or item['install_path']
+                debug_print(f"[Download] Loaded preview + existing_path for '{item['model_name']}'")
+            except Exception as _e:
+                debug_print(f"[Lazy fetch] Could not load API data for {item['model_name']}: {_e}")
+            item['_api_ready'] = True
 
-    # Fix #3: do not mutate item dict — use a local effective path
-    # Fallback to install_path if existing_path is None (e.g. lazy fetch returned value=None)
-    effective_install_path = (item['existing_path'] or item['install_path']) if item['from_batch'] else item['install_path']
+        # Fix #3: do not mutate item dict — use a local effective path
+        # Fallback to install_path if existing_path is None (e.g. lazy fetch returned value=None)
+        effective_install_path = (item['existing_path'] or item['install_path']) if item['from_batch'] else item['install_path']
 
-    gl.isDownloading = True
-    _not_downloading.clear()  # signal: download in progress
-    _dl_log.log_downloading(item['dl_id'])
-    _file.make_dir(effective_install_path)
+        gl.isDownloading = True
+        _not_downloading.clear()  # signal: download in progress
+        _dl_log.log_downloading(item['dl_id'])
+        _file.make_dir(effective_install_path)
 
-    path_to_new_file = os.path.join(effective_install_path, item['model_filename'])
+        path_to_new_file = os.path.join(effective_install_path, item['model_filename'])
 
-    if use_aria2 and os_type != 'Darwin':
-        thread = threading.Thread(target=download_file, args=(item['dl_url'], path_to_new_file, effective_install_path, item['model_id'], progress))
-    else:
-        thread = threading.Thread(target=download_file_old, args=(item['dl_url'], path_to_new_file, item['model_id'], progress))
-    thread.start()
-    try:
-        if progress != None and hasattr(progress, 'join'):
-            progress.join(thread)
+        if use_aria2 and os_type != 'Darwin':
+            thread = threading.Thread(target=download_file, args=(item['dl_url'], path_to_new_file, effective_install_path, item['model_id'], progress))
         else:
+            thread = threading.Thread(target=download_file_old, args=(item['dl_url'], path_to_new_file, item['model_id'], progress))
+        thread.start()
+        try:
+            if progress != None and hasattr(progress, 'join'):
+                progress.join(thread)
+            else:
+                thread.join()
+        except Exception:
+            # If the progress channel throws (client disconnected / screen locked),
+            # fall back to a plain join so download always completes before cleanup.
             thread.join()
-    except Exception:
-        # If the progress channel throws (client disconnected / screen locked),
-        # fall back to a plain join so download always completes before cleanup.
-        thread.join()
 
-    # Fix #1: SHA256 integrity check after download
-    if not gl.cancel_status and not gl.download_fail and item.get('model_sha256') and os.path.exists(path_to_new_file):
-        if progress is not None:
-            progress(0.99, desc=f"Verifying integrity: {item['model_filename']}...")
-        sha256_hash = hashlib.sha256()
-        with open(path_to_new_file, 'rb') as _f:
-            for _chunk in iter(lambda: _f.read(1024 * 1024), b''):
-                sha256_hash.update(_chunk)
-        actual_sha256 = sha256_hash.hexdigest().upper()
-        if actual_sha256 != item['model_sha256'].upper():
-            print(f"SHA256 mismatch for '{item['model_filename']}': expected {item['model_sha256'][:12]}…, got {actual_sha256[:12]}…")
-            gl.download_fail = True
+        # Fix #1: SHA256 integrity check after download
+        if not gl.cancel_status and not gl.download_fail and item.get('model_sha256') and os.path.exists(path_to_new_file):
             if progress is not None:
-                progress(0, desc=f"Integrity check failed for '{item['model_filename']}' — file may be corrupted.")
+                progress(0.99, desc=f"Verifying integrity: {item['model_filename']}...")
+            sha256_hash = hashlib.sha256()
+            with open(path_to_new_file, 'rb') as _f:
+                for _chunk in iter(lambda: _f.read(8 * 1024 * 1024), b''):
+                    sha256_hash.update(_chunk)
+            actual_sha256 = sha256_hash.hexdigest().upper()
+            if actual_sha256 != item['model_sha256'].upper():
+                print(f"SHA256 mismatch for '{item['model_filename']}': expected {item['model_sha256'][:12]}…, got {actual_sha256[:12]}…")
+                # Silent-update detection: re-query API for current hash of this version
+                _new_hash = None
+                _vid = item.get('version_id')
+                if _vid:
+                    try:
+                        _api_url = f"https://{_api.get_civitai_domain()}/api/v1/model-versions/{_vid}"
+                        _resp = requests.get(_api_url, headers=_api.get_headers(), timeout=(30, 15), proxies=_api.get_proxies()[0], verify=_api.get_proxies()[1])
+                        if _resp.status_code == 200:
+                            _vdata = _resp.json()
+                            _files = _vdata.get('files', [])
+                            if _files:
+                                _new_hash = _files[0].get('hashes', {}).get('SHA256', '').upper()
+                    except Exception as _e:
+                        debug_print(f"[SHA256 recheck] Failed to query version {_vid}: {_e}")
+                if _new_hash and _new_hash == actual_sha256:
+                    print(f"[SHA256 recheck] Author updated file silently — accepting new hash.")
+                    item['model_sha256'] = _new_hash
+                    # Update sidecar with new hash so future checks pass without re-query
+                    _sidecar_path = os.path.splitext(path_to_new_file)[0] + '.json'
+                    if os.path.exists(_sidecar_path):
+                        try:
+                            _sc = _api.safe_json_load(_sidecar_path) or {}
+                            _sc['sha256'] = _new_hash
+                            _api.safe_json_save(_sidecar_path, _sc)
+                        except Exception as _e:
+                            debug_print(f"[SHA256 recheck] Failed to update sidecar: {_e}")
+                else:
+                    gl.download_fail = True
+                    if progress is not None:
+                        progress(0, desc=f"Integrity check failed for '{item['model_filename']}' — file may be corrupted.")
 
-    # Only save metadata / run post-processing when the download actually succeeded.
-    # The previous condition `or gl.download_fail` was a logic error: truthy fail values
-    # (e.g. 'EARLY_ACCESS') caused saves to run even though nothing was downloaded.
-    if not gl.cancel_status and not gl.download_fail:
-        if os.path.exists(path_to_new_file):
-            # Determine content type once — used for both zip extraction and post-download saves
-            _item_content_type = ((item.get('model_json') or {}).get('items') or [{}])[0].get('type', '')
-            _is_wildcard_dl = _item_content_type == 'Wildcards'
-            unpackList = []
-            if unpack_zip:
-                try:
-                    if path_to_new_file.endswith('.zip'):
-                        directory = Path(os.path.dirname(path_to_new_file))
-                        if _is_wildcard_dl:
-                            # Wildcards: flat extraction — files only, no internal folder structure.
-                            # Prevents double-nesting (e.g. wildcards/pack/pack/file.txt).
-                            import zipfile as _zipfile
-                            with _zipfile.ZipFile(path_to_new_file, 'r') as zf:
-                                for member in zf.infolist():
-                                    if member.is_dir():
-                                        continue
-                                    filename = os.path.basename(member.filename)
-                                    if not filename:
-                                        continue
-                                    target_path = os.path.join(str(directory), filename)
-                                    with zf.open(member) as src, open(target_path, 'wb') as dst:
-                                        dst.write(src.read())
-                                    unpackList.append(filename)
-                        else:
-                            zip_handler = ZipHandler(path_to_new_file)
+        # Only save metadata / run post-processing when the download actually succeeded.
+        # The previous condition `or gl.download_fail` was a logic error: truthy fail values
+        # (e.g. 'EARLY_ACCESS') caused saves to run even though nothing was downloaded.
+        if not gl.cancel_status and not gl.download_fail:
+            if os.path.exists(path_to_new_file):
+                # Determine content type once — used for both zip extraction and post-download saves
+                _item_content_type = ((item.get('model_json') or {}).get('items') or [{}])[0].get('type', '')
+                _is_wildcard_dl = _item_content_type == 'Wildcards'
+                unpackList = []
+                if unpack_zip:
+                    try:
+                        if path_to_new_file.endswith('.zip'):
+                            directory = Path(os.path.dirname(path_to_new_file))
+                            if _is_wildcard_dl:
+                                # Wildcards: flat extraction — files only, no internal folder structure.
+                                # Prevents double-nesting (e.g. wildcards/pack/pack/file.txt).
+                                import zipfile as _zipfile
+                                with _zipfile.ZipFile(path_to_new_file, 'r') as zf:
+                                    for member in zf.infolist():
+                                        if member.is_dir():
+                                            continue
+                                        filename = os.path.basename(member.filename)
+                                        if not filename:
+                                            continue
+                                        target_path = os.path.join(str(directory), filename)
+                                        with zf.open(member) as src, open(target_path, 'wb') as dst:
+                                            dst.write(src.read())
+                                        unpackList.append(filename)
+                            else:
+                                zip_handler = ZipHandler(path_to_new_file)
 
-                            for _, decoded_name in zip_handler.name_map.items():
-                                unpackList.append(decoded_name)
+                                for _, decoded_name in zip_handler.name_map.items():
+                                    unpackList.append(decoded_name)
 
-                            zip_handler.extract_all(directory)
-                            zip_handler.zip_ref.close()
+                                zip_handler.extract_all(directory)
+                                zip_handler.zip_ref.close()
 
-                        print(f"Successfully extracted {item['model_filename']} to {directory}")
-                        os.remove(path_to_new_file)
-                except ImportError:
-                    print('Python module "ZipUnicode" has not been imported correctly, cannot extract zip file. Please try to restart or install it manually.')
-                except Exception as e:
-                    print(f"Failed to extract {item['model_filename']} with error: {e}")
-            if not gl.cancel_status:
-                if item['create_json']:
-                    _file.save_model_info(effective_install_path, item['model_filename'], item['sub_folder'], item['model_sha256'], item['preview_html'], api_response=item['model_json'])
-                info_to_json(path_to_new_file, item['model_id'], item['model_sha256'], unpackList)
+                            print(f"Successfully extracted {item['model_filename']} to {directory}")
+                            os.remove(path_to_new_file)
+                    except ImportError:
+                        print('Python module "ZipUnicode" has not been imported correctly, cannot extract zip file. Please try to restart or install it manually.')
+                    except Exception as e:
+                        print(f"Failed to extract {item['model_filename']} with error: {e}")
+                if not gl.cancel_status:
+                    if item['create_json']:
+                        _file.save_model_info(effective_install_path, item['model_filename'], item['sub_folder'], item['model_sha256'], item['preview_html'], api_response=item['model_json'])
+                    info_to_json(path_to_new_file, item['model_id'], item['model_sha256'], unpackList)
 
-                if _item_content_type == 'Checkpoint' and os.path.exists(path_to_new_file):
-                    sidecar_path = os.path.splitext(path_to_new_file)[0] + '.json'
-                    sidecar_data = _api.safe_json_load(sidecar_path) if os.path.exists(sidecar_path) else {}
-                    sidecar_data = sidecar_data if isinstance(sidecar_data, dict) else {}
-                    _file.sync_checkpoint_sha256_on_download(
-                        path_to_new_file,
-                        sidecar_data.get('sha256') or item.get('model_sha256'),
-                        model_id=sidecar_data.get('modelId') or item.get('model_id'),
-                        model_version_id=sidecar_data.get('modelVersionId')
-                    )
+                    if _item_content_type == 'Checkpoint' and os.path.exists(path_to_new_file):
+                        sidecar_path = os.path.splitext(path_to_new_file)[0] + '.json'
+                        sidecar_data = _api.safe_json_load(sidecar_path) if os.path.exists(sidecar_path) else {}
+                        sidecar_data = sidecar_data if isinstance(sidecar_data, dict) else {}
+                        _file.sync_checkpoint_sha256_on_download(
+                            path_to_new_file,
+                            sidecar_data.get('sha256') or item.get('model_sha256'),
+                            model_id=sidecar_data.get('modelId') or item.get('model_id'),
+                            model_version_id=sidecar_data.get('modelVersionId')
+                        )
 
-                if not _is_wildcard_dl:
-                    _file.save_preview(path_to_new_file, item['model_json'], True, item['model_sha256'])
-                    if save_all_images:
-                        _file.save_images(item['preview_html'], item['model_filename'], effective_install_path, item['sub_folder'], api_response=item['model_json'])
+                    if not _is_wildcard_dl:
+                        _file.save_preview(path_to_new_file, item['model_json'], True, item['model_sha256'])
+                        if save_all_images:
+                            _file.save_images(item['preview_html'], item['model_filename'], effective_install_path, item['sub_folder'], api_response=item['model_json'])
 
-                # Retention policy for updates where old and new filenames differ.
-                # (Same-filename case is already handled inside download_file via handle_existing_model_file.)
-                old_fp = item.get('old_file_path', '')
-                if old_fp and os.path.exists(old_fp) and os.path.abspath(old_fp) != os.path.abspath(path_to_new_file):
-                    _file.handle_existing_model_file(old_fp)
+                    # Retention policy for updates where old and new filenames differ.
+                    # (Same-filename case is already handled inside download_file via handle_existing_model_file.)
+                    old_fp = item.get('old_file_path', '')
+                    if old_fp and os.path.exists(old_fp) and os.path.abspath(old_fp) != os.path.abspath(path_to_new_file):
+                        _file.handle_existing_model_file(old_fp)
 
-    base_name = os.path.splitext(item['model_filename'])[0]
-    base_name_preview = base_name + '.preview'
+        base_name = os.path.splitext(item['model_filename'])[0]
+        base_name_preview = base_name + '.preview'
 
-    if gl.download_fail:
-        # EARLY_ACCESS and NO_API: download never started, no file was created by
-        # this attempt — preserve any pre-existing file from a previous good download.
-        download_never_started = gl.download_fail in ('EARLY_ACCESS', 'NO_API')
-        if not download_never_started:
-            for root, dirs, files in os.walk(effective_install_path, followlinks=True):
-                for file in files:
-                    file_base_name = os.path.splitext(file)[0]
-                    if file_base_name == base_name or file_base_name == base_name_preview:
-                        path_file = os.path.join(root, file)
-                        os.remove(path_file)
+        if gl.download_fail:
+            # EARLY_ACCESS and NO_API: download never started, no file was created by
+            # this attempt — preserve any pre-existing file from a previous good download.
+            download_never_started = gl.download_fail in ('EARLY_ACCESS', 'NO_API')
+            if not download_never_started:
+                for root, dirs, files in os.walk(effective_install_path, followlinks=True):
+                    for file in files:
+                        file_base_name = os.path.splitext(file)[0]
+                        if file_base_name == base_name or file_base_name == base_name_preview:
+                            path_file = os.path.join(root, file)
+                            os.remove(path_file)
+
+            if gl.cancel_status:
+                print(f"Cancelled download of '{item['model_filename']}'")
+            else:
+                if gl.download_fail not in ('NO_API', 'EARLY_ACCESS'):
+                    print(f"Error occured during download of '{item['model_filename']}'")
 
         if gl.cancel_status:
-            print(f"Cancelled download of '{item['model_filename']}'")
+            card_name = None
         else:
-            if gl.download_fail not in ('NO_API', 'EARLY_ACCESS'):
-                print(f"Error occured during download of '{item['model_filename']}'")
+            model_string = f"{item['model_name']} ({item['model_id']})"
+            (card_name, _, _) = _file.card_update(item['model_versions'], model_string, item['version_name'], True)
 
-    if gl.cancel_status:
-        card_name = None
-    else:
-        model_string = f"{item['model_name']} ({item['model_id']})"
-        (card_name, _, _) = _file.card_update(item['model_versions'], model_string, item['version_name'], True)
+        # Log final download status before removing from queue
+        if gl.cancel_status:
+            _dl_log.log_cancelled(item['dl_id'])
+        elif gl.download_fail:
+            _dl_log.log_failed(item['dl_id'])
+        else:
+            _dl_log.log_completed(item['dl_id'])
 
-    # Log final download status before removing from queue
-    if gl.cancel_status:
-        _dl_log.log_cancelled(item['dl_id'])
-    elif gl.download_fail:
-        _dl_log.log_failed(item['dl_id'])
-    else:
-        _dl_log.log_completed(item['dl_id'])
+        if len(gl.download_queue) != 0:
+            gl.download_queue.pop(0)
+        gl.isDownloading = False
+        _not_downloading.set()  # signal: download finished, safe to cancel/cleanup
 
-    if len(gl.download_queue) != 0:
-        gl.download_queue.pop(0)
-    gl.isDownloading = False
-    _not_downloading.set()  # signal: download finished, safe to cancel/cleanup
-    time.sleep(2)
+        # If cancelled, stop processing the queue entirely
+        if gl.cancel_status:
+            break
+
+        # Brief pause between items to let Gradio breathe and allow cancel clicks to register
+        time.sleep(1)
 
     if len(gl.download_queue) == 0:
         finish_nr = random_number(download_finish)

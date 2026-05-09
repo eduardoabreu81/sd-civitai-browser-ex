@@ -721,6 +721,14 @@ def _search_by_sha256(sha256_hash):
             if 'error' in data:
                 return 'sha256_not_found'
 
+            # Defensive: API may return a list or unexpected structure
+            if isinstance(data, list):
+                if len(data) == 0:
+                    return 'sha256_not_found'
+                data = data[0]
+            if not isinstance(data, dict):
+                return 'sha256_not_found'
+
             # Get model ID and fetch full model data
             model_id = data.get('modelId')
             if not model_id:
@@ -829,7 +837,16 @@ def create_api_url(content_type=None, sort_type=None, period_type=None, use_sear
 
 ## === ANXETY EDITs ===
 def initial_model_page(content_type=None, sort_type=None, period_type=None, use_search_term=None, search_term=None, current_page=None, base_filter=None, only_liked=None, nsfw=None, exact_search=None, tile_count=None, from_update_tab=False):
-    current_inputs = (content_type, sort_type, period_type, use_search_term, search_term, tile_count, base_filter, nsfw, exact_search)
+    # Update Mode isolation: when update_mode is active, ignore Browser-tab filters
+    # and preserve the update list state. Only exit update_mode via explicit action.
+    if getattr(gl, 'update_mode', False) and not from_update_tab:
+        from_update_tab = True
+        # Preserve previous_inputs so that page navigation within Update Mode
+        # does not trigger a reset to page 1 caused by Browser filter changes.
+        current_inputs = gl.previous_inputs
+    else:
+        current_inputs = (content_type, sort_type, period_type, use_search_term, search_term, tile_count, base_filter, nsfw, exact_search)
+
     if current_inputs != gl.previous_inputs and gl.previous_inputs != None or not current_page:
         current_page = 1
     gl.previous_inputs = current_inputs
