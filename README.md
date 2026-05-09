@@ -42,17 +42,6 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 - **Better card sync** — card status updates are now queued when the user is on another tab and applied automatically when they return to the Browser tab.
 - **More stable observers** — MutationObservers now target `document.documentElement` instead of `document.body`, preventing rare crashes during early DOM initialization.
 
-### v0.3.0-ex — CivitAI Domain Support & Quality Improvements
-
-- **Full support for the new CivitAI domain split** — CivitAI now separates SFW content (`civitai.com`) from the complete catalog (`civitai.red`). The extension adapts automatically so nothing breaks.
-- **Paste any CivitAI link** — model links from both `civitai.com` and `civitai.red` now open the correct model instantly when pasted into the search box.
-- **New "SFW only" setting** — a simple checkbox in Settings lets you restrict all links and API calls to `civitai.com` if you prefer. Off by default, so the full catalog stays accessible without extra steps.
-- **Smart links in model previews** — "Model Page" and creator profile links in the preview panel now always point to the right domain, whether the model is SFW or NSFW.
-- **Resilient API calls** — transient server errors now trigger automatic retries with exponential backoff instead of failing silently.
-- **Checkpoint SHA256 cache sync** — checkpoints downloaded or updated through the extension now sync their hashes into Forge's cache automatically; a manual sync button is available in Update Models.
-- **Safer delete flow** — the Browser panel now prioritizes installed versions in the dropdown, quick-delete is blocked when multiple versions of the same model are installed, and local-only files remain visible even when CivitAI has no match for them.
-- **Trigger word improvements** — trigger word groups are now preserved natively in local cache, and per-group rows in the model panel show individual copy and add-to-prompt buttons.
-
 ---
 
 ## 📖 Changelog
