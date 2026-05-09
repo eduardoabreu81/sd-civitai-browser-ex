@@ -30,6 +30,10 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 🆕 What's New
 
+### v0.4.1-ex — Exact Search Fix
+
+- **Exact search fixed** — exact search (quoted term) now only applies to **Model name** queries. Previously it was incorrectly applied to Tag and User name searches, causing the CivitAI API to return no results.
+
 ### v0.4.0-ex — Download Reliability & Update Mode Improvements
 
 - **Faster batch downloads** — the queue now processes multiple items in a single internal loop, eliminating delays between downloads caused by Gradio event round-trips.
@@ -46,7 +50,7 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 📖 Changelog
 
-### v0.4.0-ex — Download Reliability & Update Mode Improvements
+### v0.4.1-ex — Exact Search Fix
 - Batch download internal loop: process entire queue in one Gradio event to eliminate inter-item gaps.
 - SHA256 silent-update detection: on mismatch, re-query `/api/v1/model-versions/{id}` to accept author-updated files.
 - Defensive SHA256 search: handle list responses and missing `modelId` gracefully.
@@ -126,7 +130,10 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ### v0.3.0-ex — CivitAI Domain Support *(complete)* ✅
 
-### v0.4.0-ex — Download Reliability & Update Mode Improvements *(current)*
+### v0.4.0-ex — Download Reliability & Update Mode Improvements *(complete)* ✅
+
+### v0.4.1-ex — Exact Search Fix *(current)*
+- Exact search restricted to Model name only — CivitAI API does not support quoted search for Tag or User name
 
 ### v0.5.0-ex — Extended Features *(planned)*
 - Saved search presets
