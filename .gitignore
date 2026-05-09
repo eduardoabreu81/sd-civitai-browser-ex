@@ -38,3 +38,7 @@ ENV/
 *.swo
 *~
 .DS_Store
+
+# Internal agent documentation
+AGENTS.md
+
