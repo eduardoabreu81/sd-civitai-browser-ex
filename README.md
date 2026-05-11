@@ -30,6 +30,10 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 🆕 What's New
 
+### v0.4.2-ex — Download Fix
+
+- **Fixed broken single and multi downloads** — `create_model_item` was missing the `version_id` parameter, causing downloads to fail silently. The parameter is now accepted and correctly resolved from model metadata before enqueuing.
+
 ### v0.4.1-ex — Exact Search Fix
 
 - **Exact search fixed** — exact search (quoted term) now only applies to **Model name** queries. Previously it was incorrectly applied to Tag and User name searches, causing the CivitAI API to return no results.
@@ -49,6 +53,11 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 ---
 
 ## 📖 Changelog
+
+### v0.4.2-ex — Download Fix
+- Added missing `version_id` parameter to `create_model_item`.
+- `selected_to_queue` now passes `version_id` when enqueuing batch items.
+- `download_start` now resolves `version_id` from `gl.json_data` before enqueuing single downloads.
 
 ### v0.4.1-ex — Exact Search Fix
 - Batch download internal loop: process entire queue in one Gradio event to eliminate inter-item gaps.
