@@ -116,7 +116,7 @@ elif os_type == 'Linux':
 class TimeOutFunction(Exception):
     pass
 
-def create_model_item(dl_url, model_filename, install_path, model_name, version_name, model_sha256, model_id, create_json, from_batch=False, old_file_path=None):
+def create_model_item(dl_url, model_filename, install_path, model_name, version_name, model_sha256, model_id, version_id, create_json, from_batch=False, old_file_path=None):
     global dl_manager_count
     if model_id:
         model_id = int(model_id)
@@ -271,7 +271,7 @@ def selected_to_queue(model_list, subfolder, download_start, create_json, curren
                     old_file_path = _upd.get('old_file', '') or None
                     break
 
-        model_item = create_model_item(dl_url, model_filename, install_path, model_name, version_name, model_sha256, model_id, create_json, from_batch, old_file_path=old_file_path)
+        model_item = create_model_item(dl_url, model_filename, install_path, model_name, version_name, model_sha256, model_id, version_id, create_json, from_batch, old_file_path=old_file_path)
         if model_item:
             gl.download_queue.append(model_item)
             total_count += 1
@@ -423,7 +423,16 @@ def download_start(download_start, dl_url, model_filename, install_path, model_s
     global total_count, current_count
     if model_string:
         model_name, _ = _api.extract_model_info(model_string)
-    model_item = create_model_item(dl_url, model_filename, install_path, model_name, version_name, model_sha256, model_id, create_json)
+    version_id = None
+    if model_id and gl.json_data:
+        for item in gl.json_data.get('items', []):
+            if int(item['id']) == int(model_id):
+                for version in item.get('modelVersions', []):
+                    if version.get('name') == version_name:
+                        version_id = version.get('id')
+                        break
+                break
+    model_item = create_model_item(dl_url, model_filename, install_path, model_name, version_name, model_sha256, model_id, version_id, create_json)
 
     if model_item:
         gl.download_queue.append(model_item)
