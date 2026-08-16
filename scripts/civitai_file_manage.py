@@ -59,6 +59,7 @@ def _format_size(size_bytes: int) -> str:
 # Pattern from SignalFlagZ/sd-webui-civbrowser
 # ─────────────────────────────────────────────────────────────────────────────
 _EXT_ROOT = Path(__file__).resolve().parents[1]
+_CHECKPOINT_HASH_DB_PATH = _EXT_ROOT / 'lib' / 'models' / 'checkpoint_hashes.json'
 
 class UserInfo:
     """Persistent comma-separated list of creator usernames stored in a .txt file."""
@@ -808,6 +809,92 @@ def list_files(folders):
     model_files = sorted(list(set(model_files)))
     return model_files
 
+
+def _detect_content_type_from_path(file_path):
+    upscaler_folders = [
+        _api.contenttype_folder('Upscaler', 'SwinIR'),
+        _api.contenttype_folder('Upscaler', 'RealESRGAN'),
+        _api.contenttype_folder('Upscaler', 'GFPGAN'),
+        _api.contenttype_folder('Upscaler', 'BSRGAN'),
+        _api.contenttype_folder('Upscaler', 'ESRGAN')
+    ]
+    for folder in upscaler_folders:
+        if folder and file_path.startswith(folder):
+            return 'Upscaler'
+
+    content_types = [
+        'Checkpoint', 'TextualInversion', 'LORA', 'Poses', 'Controlnet', 'Detection',
+        'VAE', 'Wildcards', 'AestheticGradient', 'MotionModule', 'Workflows', 'Other'
+    ]
+    for content_type in content_types:
+        folder = _api.contenttype_folder(content_type)
+        if folder and file_path.startswith(folder):
+            return content_type
+
+    return 'Other'
+
+
+def _build_local_fallback_browser_item(file_path):
+    file_name = os.path.basename(file_path)
+    model_name = os.path.splitext(file_name)[0]
+    content_type = _detect_content_type_from_path(file_path)
+    local_id = -(abs(hash(os.path.abspath(file_path))) % 2000000000 + 1)
+
+    file_sha = ''
+    json_file = os.path.splitext(file_path)[0] + '.json'
+    if os.path.exists(json_file):
+        data = _api.safe_json_load(json_file)
+        if data:
+            file_sha = str(data.get('sha256') or '').upper().strip()
+
+    if not file_sha:
+        try:
+            file_sha = str(gen_sha256(file_path) or '').upper().strip()
+        except Exception:
+            file_sha = ''
+
+    try:
+        size_kb = max(1, int(os.path.getsize(file_path) / 1024))
+        mtime = os.path.getmtime(file_path)
+    except Exception:
+        size_kb = 1
+        mtime = time.time()
+
+    published_at = time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(mtime))
+
+    return {
+        'id': local_id,
+        'name': model_name,
+        'type': content_type,
+        'description': 'Local file without CivitAI match',
+        'creator': {'username': 'Local Library', 'image': 'https://rawcdn.githack.com/gist/BlafKing/8d3f7a19e3f72cfddab46ae835037ee6/raw/296e81afbdd268200278beef478f3018b15936de/profile_placeholder.svg'},
+        'tags': ['local-only'],
+        'allowNoCredit': False,
+        'allowCommercialUse': [],
+        'allowDerivatives': False,
+        'allowDifferentLicense': False,
+        'local_only': True,
+        'local_file_path': file_path,
+        'modelVersions': [{
+            'id': local_id,
+            'name': 'Local file',
+            'baseModel': 'Local',
+            'publishedAt': published_at,
+            'availability': 'Unknown',
+            'trainedWords': [],
+            'images': [],
+            'downloadUrl': '',
+            'files': [{
+                'name': file_name,
+                'sizeKB': size_kb,
+                'downloadUrl': '',
+                'hashes': {'SHA256': file_sha},
+                'metadata': {'size': 'Unknown', 'format': 'SafeTensor', 'fp': 'Unknown'},
+                'primary': True
+            }]
+        }]
+    }
+
 def gen_sha256(file_path):
     json_file = os.path.splitext(file_path)[0] + '.json'
 
@@ -845,6 +932,224 @@ def gen_sha256(file_path):
     _api.safe_json_save(json_file, data)
 
     return hash_value
+
+
+def _normalize_sha256(sha256_value):
+    if not sha256_value:
+        return None
+    sha = str(sha256_value).strip().lower()
+    if len(sha) != 64:
+        return None
+    if not re.fullmatch(r'[0-9a-f]{64}', sha):
+        return None
+    return sha
+
+
+def _load_checkpoint_hash_db():
+    data = _api.safe_json_load(_CHECKPOINT_HASH_DB_PATH)
+    if not isinstance(data, dict):
+        return {'version': 1, 'checkpoints': {}}
+
+    checkpoints = data.get('checkpoints', {})
+    if not isinstance(checkpoints, dict):
+        checkpoints = {}
+
+    return {
+        'version': 1,
+        'checkpoints': checkpoints
+    }
+
+
+def _save_checkpoint_hash_db(db_data):
+    os.makedirs(_CHECKPOINT_HASH_DB_PATH.parent, exist_ok=True)
+    _api.safe_json_save(_CHECKPOINT_HASH_DB_PATH, db_data)
+
+
+def _is_checkpoint_file(file_path):
+    ext = os.path.splitext(file_path)[1].lower()
+    return ext in ('.safetensors', '.ckpt')
+
+
+def _checkpoint_cache_key(file_path):
+    checkpoint_root = _api.contenttype_folder('Checkpoint')
+    relative = os.path.basename(file_path)
+
+    if checkpoint_root:
+        try:
+            relative = os.path.relpath(file_path, checkpoint_root)
+        except Exception:
+            relative = os.path.basename(file_path)
+
+    relative = relative.replace('\\', '/')
+    return f'checkpoint/{relative}'
+
+
+def _upsert_forge_hash_cache(file_path, sha256_value, add_only=True):
+    cache_key = _checkpoint_cache_key(file_path)
+    normalized_sha = _normalize_sha256(sha256_value)
+    if not normalized_sha:
+        return False, cache_key
+
+    try:
+        from modules import hashes as _hashes
+        cache_store = _hashes.cache('hashes')
+        existing = cache_store.get(cache_key)
+
+        if add_only and existing:
+            return False, cache_key
+
+        cache_store[cache_key] = {
+            'mtime': os.path.getmtime(file_path),
+            'sha256': normalized_sha
+        }
+        _hashes.dump_cache()
+        return True, cache_key
+    except Exception as e:
+        debug_print(f"[SHA256 sync] Failed to update Forge hash cache for '{file_path}': {e}")
+        return False, cache_key
+
+
+def _cleanup_deleted_checkpoints(db_data, existing_paths):
+    removed_count = 0
+    removed_cache_count = 0
+    existing_set = set(existing_paths)
+
+    try:
+        from modules import hashes as _hashes
+        cache_store = _hashes.cache('hashes')
+    except Exception:
+        cache_store = None
+        _hashes = None
+
+    checkpoints = db_data.get('checkpoints', {})
+    for tracked_path in list(checkpoints.keys()):
+        if tracked_path in existing_set:
+            continue
+
+        removed_count += 1
+        entry = checkpoints.pop(tracked_path, {})
+        cache_key = entry.get('cache_key')
+
+        if cache_store is not None and cache_key and cache_key in cache_store:
+            try:
+                del cache_store[cache_key]
+                removed_cache_count += 1
+            except Exception:
+                pass
+
+    if removed_cache_count > 0 and _hashes is not None:
+        try:
+            _hashes.dump_cache()
+        except Exception:
+            pass
+
+    return removed_count, removed_cache_count
+
+
+def sync_checkpoint_sha256_on_download(file_path, sha256_value, model_id=None, model_version_id=None):
+    if not file_path or not os.path.exists(file_path) or not _is_checkpoint_file(file_path):
+        return
+
+    normalized_sha = _normalize_sha256(sha256_value)
+    if not normalized_sha:
+        return
+
+    abs_path = os.path.abspath(file_path)
+    db_data = _load_checkpoint_hash_db()
+    was_added, cache_key = _upsert_forge_hash_cache(abs_path, normalized_sha, add_only=False)
+
+    db_data['checkpoints'][abs_path] = {
+        'sha256': normalized_sha,
+        'mtime': os.path.getmtime(abs_path),
+        'modelId': model_id,
+        'modelVersionId': model_version_id,
+        'cache_key': cache_key,
+        'synced_to_forge': True,
+        'last_synced': int(time.time())
+    }
+    _save_checkpoint_hash_db(db_data)
+
+    if was_added:
+        debug_print(f"[SHA256 sync] Updated Forge cache for checkpoint: {os.path.basename(abs_path)}")
+
+
+def sync_checkpoint_sha256_cache(progress=gr.Progress() if queue else None):
+    checkpoint_root = _api.contenttype_folder('Checkpoint')
+    if not checkpoint_root or not os.path.exists(checkpoint_root):
+        return gr.update(value='<div style="color: var(--error-text-color);">Checkpoint folder not found.</div>')
+
+    checkpoint_files = []
+    for root, _, files in os.walk(checkpoint_root, followlinks=True):
+        for file_name in files:
+            file_path = os.path.join(root, file_name)
+            if _is_checkpoint_file(file_path):
+                checkpoint_files.append(os.path.abspath(file_path))
+
+    if not checkpoint_files:
+        return gr.update(value='<div style="color: var(--warning-text-color);">No checkpoints found to sync.</div>')
+
+    checkpoint_files = sorted(list(set(checkpoint_files)))
+    db_data = _load_checkpoint_hash_db()
+
+    removed_entries, removed_cache_entries = _cleanup_deleted_checkpoints(db_data, checkpoint_files)
+
+    added_count = 0
+    skipped_existing = 0
+    missing_sha = 0
+    failed_count = 0
+    total_files = len(checkpoint_files)
+
+    for idx, file_path in enumerate(checkpoint_files, start=1):
+        if progress is not None:
+            progress(idx / total_files, desc=f"Syncing checkpoint hashes... {idx}/{total_files}")
+
+        sidecar_path = os.path.splitext(file_path)[0] + '.json'
+        sidecar = _api.safe_json_load(sidecar_path) if os.path.exists(sidecar_path) else {}
+        sidecar = sidecar if isinstance(sidecar, dict) else {}
+
+        sha_from_json = _normalize_sha256(sidecar.get('sha256'))
+        if not sha_from_json:
+            missing_sha += 1
+            continue
+
+        was_added, cache_key = _upsert_forge_hash_cache(file_path, sha_from_json, add_only=True)
+        if was_added:
+            added_count += 1
+        else:
+            skipped_existing += 1
+
+        if not cache_key:
+            failed_count += 1
+            continue
+
+        db_data['checkpoints'][file_path] = {
+            'sha256': sha_from_json,
+            'mtime': os.path.getmtime(file_path),
+            'modelId': sidecar.get('modelId'),
+            'modelVersionId': sidecar.get('modelVersionId'),
+            'cache_key': cache_key,
+            'synced_to_forge': True,
+            'last_synced': int(time.time())
+        }
+
+    _save_checkpoint_hash_db(db_data)
+
+    summary = (
+        '<div style="line-height: 1.5; padding: 8px 0;">'
+        f'<strong>SHA256 cache sync complete.</strong><br>'
+        f'Checkpoints scanned: {total_files}<br>'
+        f'Added to Forge cache: {added_count}<br>'
+        f'Already in Forge cache: {skipped_existing}<br>'
+        f'Missing SHA256 in sidecar: {missing_sha}<br>'
+        f'Removed missing files from local DB: {removed_entries}<br>'
+        f'Removed stale Forge cache entries: {removed_cache_entries}'
+    )
+
+    if failed_count > 0:
+        summary += f'<br>Failed entries: {failed_count}'
+
+    summary += '</div>'
+    return gr.update(value=summary)
 
 def convert_local_images(html):
     soup = BeautifulSoup(html)
@@ -950,7 +1255,7 @@ def model_from_sent(model_name, content_type):
             output_html = _api.api_error_msg('offline')
             modelID_failed = True
         if not modelID_failed:
-            api_response = _api.request_civit_api(f"https://civitai.com/api/v1/models?ids={modelID}&nsfw=true")
+            api_response = _api.request_civit_api(f"https://{_api.get_civitai_domain()}/api/v1/models?ids={modelID}&nsfw=true")
         if modelID_failed or api_response in ['timeout', 'error', 'offline']:
             return gr.update(value='<p>ERROR</p>', placeholder=_download.random_number()),  # Preview HTML
         if api_response == 'not_found':
@@ -1033,7 +1338,7 @@ def send_to_browser(model_name, content_type, click_first_item):
             modelID_failed = True
 
         if not modelID_failed:
-            gl.json_data = _api.request_civit_api(f"https://civitai.com/api/v1/models?ids={modelID}&nsfw=true")
+            gl.json_data = _api.request_civit_api(f"https://{_api.get_civitai_domain()}/api/v1/models?ids={modelID}&nsfw=true")
             output_html = _api.model_list_html(gl.json_data)
             number = _download.random_number(click_first_item)
 
@@ -1267,7 +1572,7 @@ def save_model_info(install_path, file_name, sub_folder, sha256=None, preview_ht
                 file_hash = gen_sha256(model_file)
                 if file_hash:
                     normalized = _api.normalize_sha256(file_hash)
-                    by_hash_url = f"https://civitai.com/api/v1/model-versions/by-hash/{normalized}"
+                    by_hash_url = f"https://{_api.get_civitai_domain()}/api/v1/model-versions/by-hash/{normalized}"
                     headers = _api.get_headers()
                     proxies, ssl_verify = _api.get_proxies()
                     resp = _api.requests_get_with_retry(by_hash_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl_verify)
@@ -1300,6 +1605,67 @@ def find_model_version_by_filename(api_response, file_name):
                     return model_version, item
     return None, None
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Trigger Word Consolidation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def extract_safetensors_metadata(file_path):
+    """Extract trigger words/metadata from a .safetensors file."""
+    if not file_path or not os.path.exists(file_path):
+        return []
+
+    def _split_tags(value):
+        if not isinstance(value, str):
+            return []
+        return [t.strip() for t in re.split(r'[,;\n\r]+', value) if t.strip()]
+
+    try:
+        with open(file_path, 'rb') as f:
+            header_size_bytes = f.read(8)
+            if len(header_size_bytes) < 8:
+                return []
+
+            header_size = int.from_bytes(header_size_bytes, byteorder='little')
+            header_json = f.read(header_size).decode('utf-8', errors='ignore')
+            header_dict = json.loads(header_json)
+
+            metadata = header_dict.get('__metadata__', {})
+            if isinstance(metadata, dict):
+                for key in ['activation_text', 'activation text', 'trigger_words', 'trigger words', 'tags']:
+                    if key in metadata:
+                        val = metadata[key]
+                        if isinstance(val, list):
+                            return [str(t).strip() for t in val if str(t).strip()]
+                        tags = _split_tags(val)
+                        if tags:
+                            return tags
+
+            return []
+    except Exception:
+        return []
+
+def consolidate_trigger_words(safetensors_tags=None, json_tags=None, api_tags=None):
+    """Consolidate trigger words from safetensors, local json and api with deduplication."""
+    def _split_tags(value):
+        if isinstance(value, list):
+            return [str(t).strip() for t in value if str(t).strip()]
+        if isinstance(value, str):
+            return [t.strip() for t in re.split(r'[,;\n\r]+', value) if t.strip()]
+        return []
+
+    sources = []
+    sources.extend(_split_tags(safetensors_tags))
+    sources.extend(_split_tags(json_tags))
+    sources.extend(_split_tags(api_tags))
+
+    seen = {}
+    for tag in sources:
+        key = tag.lower()
+        if key not in seen:
+            seen[key] = tag
+
+    return list(seen.values())
+
 ## === ANXETY EDITs ===
 def find_and_save(api_response, sha256=None, file_name=None, json_file=None, no_hash=None, overwrite_toggle=None):
     save_desc = getattr(opts, 'model_desc_to_json', True)
@@ -1313,6 +1679,27 @@ def find_and_save(api_response, sha256=None, file_name=None, json_file=None, no_
     if model_version and item:
         gl.json_info = item
         trained_words = model_version.get('trainedWords', [])
+
+        def _sanitize_group_text(value):
+            text = str(value) if value is not None else ''
+            text = re.sub(r'<[^>]*:[^>]*>', '', text)
+            text = re.sub(r',\s*', ', ', text)
+            return text.strip(', ').strip()
+
+        # Preserve original API grouping for UI rows (same shape as CivitAI).
+        api_groups = []
+        _seen_groups = set()
+        if isinstance(trained_words, list):
+            for group in trained_words:
+                cleaned = _sanitize_group_text(group)
+                key = cleaned.lower()
+                if cleaned and key not in _seen_groups:
+                    _seen_groups.add(key)
+                    api_groups.append(cleaned)
+        elif isinstance(trained_words, str):
+            cleaned = _sanitize_group_text(trained_words)
+            if cleaned:
+                api_groups = [cleaned]
 
         if save_desc:
             description = item.get('description', '')
@@ -1330,19 +1717,38 @@ def find_and_save(api_response, sha256=None, file_name=None, json_file=None, no_
         if not base_model:
             base_model = 'Other'
 
-        if isinstance(trained_words, list):
-            trained_tags = ','.join(trained_words)
-            trained_tags = re.sub(r'<[^>]*:[^>]*>', '', trained_tags)
-            trained_tags = re.sub(r', ?', ', ', trained_tags)
-            trained_tags = trained_tags.strip(', ')
-        else:
-            trained_tags = trained_words
-
         content = _api.safe_json_load(json_file) or {}
+        api_tags = ', '.join(api_groups) if api_groups else ''
+
+        json_tags = content.get('activation text', '')
+        safetensors_tags = []
+        model_file_path = None
+        if json_file and file_name:
+            model_file_path = os.path.join(os.path.dirname(json_file), file_name)
+        if not model_file_path and json_file:
+            json_stem = os.path.splitext(json_file)[0]
+            for ext in ['.safetensors', '.ckpt', '.pt', '.bin', '.pth']:
+                candidate = f'{json_stem}{ext}'
+                if os.path.exists(candidate):
+                    model_file_path = candidate
+                    break
+        if model_file_path and model_file_path.lower().endswith('.safetensors'):
+            safetensors_tags = extract_safetensors_metadata(model_file_path)
+
+        consolidated_tags = consolidate_trigger_words(
+            safetensors_tags=safetensors_tags,
+            json_tags=json_tags,
+            api_tags=api_tags
+        )
+        trained_tags = ', '.join(consolidated_tags) if consolidated_tags else ''
+
         changed = False
         if overwrite_toggle == False:
             if 'activation text' not in content:
                 content['activation text'] = trained_tags
+                changed = True
+            if api_groups and 'activation text groups' not in content:
+                content['activation text groups'] = api_groups
                 changed = True
             if save_desc and ('description' not in content):
                 content['description'] = description
@@ -1358,17 +1764,19 @@ def find_and_save(api_response, sha256=None, file_name=None, json_file=None, no_
                 content['modelVersionId'] = model_version.get('id')
                 changed = True
             if 'modelPageURL' not in content:
-                content['modelPageURL'] = f"https://civitai.com/models/{item.get('id')}?modelVersionId={model_version.get('id')}"
+                content['modelPageURL'] = f"https://{_api.get_civitai_domain()}/models/{item.get('id')}?modelVersionId={model_version.get('id')}"
                 changed = True
         else:
             content['activation text'] = trained_tags
+            if api_groups:
+                content['activation text groups'] = api_groups
             if save_desc:
                 content['description'] = description
             content['sd version'] = base_model
             # Always update these fields when overwrite is enabled
             content['modelId'] = item.get('id')
             content['modelVersionId'] = model_version.get('id')
-            content['modelPageURL'] = f"https://civitai.com/models/{item.get('id')}?modelVersionId={model_version.get('id')}"
+            content['modelPageURL'] = f"https://{_api.get_civitai_domain()}/models/{item.get('id')}?modelVersionId={model_version.get('id')}"
             changed = True
 
         _api.safe_json_save(json_file, content)
@@ -1396,7 +1804,7 @@ def get_models(file_path, gen_hash=None):
             sha256 = gen_sha256(file_path)
 
         if sha256:
-            by_hash = f"https://civitai.com/api/v1/model-versions/by-hash/{sha256}"
+            by_hash = f"https://{_api.get_civitai_domain()}/api/v1/model-versions/by-hash/{sha256}"
         else:
             return modelId if modelId else None
 
@@ -1428,7 +1836,7 @@ def get_models(file_path, gen_hash=None):
             data.update({
                 'modelId': modelId,
                 'modelVersionId': modelVersionId,
-                'modelPageURL': f"https://civitai.com/models/{modelId}?modelVersionId={modelVersionId}",
+                'modelPageURL': f"https://{_api.get_civitai_domain()}/models/{modelId}?modelVersionId={modelVersionId}",
                 'sha256': sha256.upper()
             })
             _api.safe_json_save(json_file, data)
@@ -1496,8 +1904,9 @@ def version_match(file_paths, api_response, log=False):
     updated_models = []
     outdated_models = []
 
-    # === 1. Collecting installed SHA256 ===
+    # === 1. Collecting installed SHA256 + mtime mapping ===
     installed_hashes = set()
+    sha_to_mtime = {}
     for path in file_paths:
         json_path = f"{os.path.splitext(path)[0]}.json"
         data = _api.safe_json_load(json_path)
@@ -1505,6 +1914,10 @@ def version_match(file_paths, api_response, log=False):
             sha = data.get('sha256', '')
             if sha:
                 installed_hashes.add(sha.upper())
+                sha_to_mtime[sha.upper()] = os.path.getmtime(path)
+        # fallback: use model file mtime if json sidecar has no sha256
+        if not data or not data.get('sha256'):
+            sha_to_mtime.setdefault('', {})  # dummy, will be ignored in lookups
 
     if log:
         print(f"[LOG] {len(installed_hashes)} installed model hashes found")
@@ -1589,9 +2002,24 @@ def version_match(file_paths, api_response, log=False):
 
         model_type = model.get('type', 'Unknown')
         if has_outdated:
-            outdated_models.append((f"&ids={model_id}", model_name, model_type))
+            # Determine mtime for this outdated model by looking up installed SHA256
+            model_mtime = 0
+            for ver in model_versions:
+                for fe in ver.get('files', []):
+                    sha = fe.get('hashes', {}).get('SHA256', '').upper()
+                    if sha in sha_to_mtime:
+                        model_mtime = sha_to_mtime[sha]
+                        break
+                if model_mtime:
+                    break
+            outdated_models.append((f"&ids={model_id}", model_name, model_type, model_mtime))
         else:
             updated_models.append((f"&ids={model_id}", model_name, model_type))
+
+    # Sort outdated models by file modification time (most recent first)
+    outdated_models.sort(key=lambda x: x[3], reverse=True)
+    # Strip mtime before returning to keep tuple shape consistent
+    outdated_models = [(x[0], x[1], x[2]) for x in outdated_models]
 
     return updated_models, outdated_models
 
@@ -1757,6 +2185,7 @@ def file_scan(folders, tag_finish, ver_finish, installed_finish, preview_finish,
     all_model_ids = []
     file_paths = []
     all_ids = []
+    local_fallback_items = []
 
     for file_path in files:
         if gl.cancel_status:
@@ -1778,19 +2207,25 @@ def file_scan(folders, tag_finish, ver_finish, installed_finish, preview_finish,
             print('The CivitAI servers did not respond, unable to retrieve Model ID')
         elif model_id == 'Model not found':
             debug_print(f"model: '{file_name}' not found on CivitAI servers.")
+            if from_installed:
+                local_fallback_items.append(_build_local_fallback_browser_item(file_path))
         elif model_id != None:
             all_model_ids.append(f"&ids={model_id}")
             all_ids.append(model_id)
             file_paths.append(file_path)
         elif not model_id:
             print(f"model ID not found for: '{file_name}'")
+            if from_installed:
+                local_fallback_items.append(_build_local_fallback_browser_item(file_path))
         files_done += 1
+
+    gl.local_browser_fallback_items = local_fallback_items
 
     all_items = []
 
     all_model_ids = list(set(all_model_ids))
 
-    if not all_model_ids:
+    if not all_model_ids and not local_fallback_items:
         progress(1, desc='No model IDs could be retrieved.')
         print("Could not retrieve any Model IDs, please make sure to turn on the 'One-Time Hash Generation for externally downloaded models.' option if you haven't already.")
         no_update = True
@@ -1808,7 +2243,7 @@ def file_scan(folders, tag_finish, ver_finish, installed_finish, preview_finish,
     if not from_installed:
         model_chunks = list(chunks(all_model_ids, 500))
 
-        base_url = "https://civitai.com/api/v1/models?limit=50&nsfw=true"
+        base_url = f"https://{_api.get_civitai_domain()}/api/v1/models?limit=100&nsfw=true"
         url_list = [f"{base_url}{''.join(chunk)}" for chunk in model_chunks]
 
         url_count = len(all_model_ids) // 100
@@ -1910,10 +2345,12 @@ def file_scan(folders, tag_finish, ver_finish, installed_finish, preview_finish,
                 gr.update(value=number)
             )
 
-    model_chunks = list(chunks(all_model_ids, tile_count))
-
-    base_url = "https://civitai.com/api/v1/models?limit=50&nsfw=true"
-    gl.url_list = {i + 1: f"{base_url}{''.join(chunk)}" for i, chunk in enumerate(model_chunks)}
+    if all_model_ids:
+        model_chunks = list(chunks(all_model_ids, tile_count))
+        base_url = f"https://{_api.get_civitai_domain()}/api/v1/models?limit=100&nsfw=true"
+        gl.url_list = {i + 1: f"{base_url}{''.join(chunk)}" for i, chunk in enumerate(model_chunks)}
+    else:
+        gl.url_list = {1: 'local_only://fallback'}
 
     ## === ANXETY EDITs ===
     if from_ver:
@@ -2290,7 +2727,7 @@ def _fetch_api_info_by_hash(file_path, api_info_file):
         _debug_log(f"Invalid SHA256 for: {model_name}")
         return None
 
-    api_url = f"https://civitai.com/api/v1/model-versions/by-hash/{normalized}"
+    api_url = f"https://{_api.get_civitai_domain()}/api/v1/model-versions/by-hash/{normalized}"
     _debug_log(f"API call: {api_url}")
 
     try:

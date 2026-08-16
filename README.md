@@ -1,66 +1,102 @@
 <div align="center">
-  <img src=".github/logo.png?v=2" alt="CivitAI Browser Ex"/>
+  <img src=".github/logo.png?v=2" alt="CivitAI Browser EX"/>
 </div>
 
-# 🎨 CivitAI Browser Ex
+# 🎨 CivitAI Browser EX
 
 <div align="center">
 
-[![A1111](https://img.shields.io/badge/A1111-compatible-blue)](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
-[![Forge Classic](https://img.shields.io/badge/Forge-Classic-blueviolet)](https://github.com/Haoming02/sd-webui-forge-classic)
-[![Gradio](https://img.shields.io/badge/Gradio-3.x-orange)](https://gradio.app/)
+[![Forge Classic / A1111](https://img.shields.io/badge/Gradio-3.41.2-orange)](https://gradio.app/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> **Extension for [Automatic1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui), [Forge Classic](https://github.com/Haoming02/sd-webui-forge-classic), and other Gradio 3.x SD WebUI variants**
+> **Extension for [A1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui) and [Forge Classic](https://github.com/Haoming02/sd-webui-forge-classic/)**
 
 </div>
 
-Brings the full feature set of sd-civitai-browser-neo — auto-organization, dashboard, creator management, and download reliability — natively to A1111, Forge Classic, and any Stable Diffusion WebUI running Gradio 3.x.
+Browse, download, and manage your CivitAI models directly inside the WebUI — with auto-organization, disk usage dashboard, creator management, and support for all modern architectures (FLUX, Wan, Qwen, Pony, Illustrious, and more).
 
 ---
 
 ## 📋 Table of Contents
 
-- [Ex Versioning](#-ex-versioning)
-- [What's New](#-whats-new--v021-ex)
+- [What's New](#-whats-new)
 - [Changelog](#-changelog)
-- [Roadmap](#%EF%B8%8F-roadmap)
+- [Roadmap](#️-roadmap)
 - [Features](#-features)
 - [Installation](#-installation)
-- [Auto-Organization System](#-auto-organization-system)
-- [Dashboard & Statistics](#-dashboard--statistics)
-- [Supported Model Types](#-supported-model-types)
 - [Credits](#-credits)
 
 ---
 
-## 🔢 Ex Versioning
+## 🆕 What's New
 
-Ex uses semantic versioning with this format:
+### v0.4.2-ex — Download Fix
 
-- `vX.Y.Z-ex` (forked from Neo `vX.Y.Z`)
-- `X` = Major updates (breaking changes or major architecture shifts)
-- `Y` = Minor updates (new features and UX improvements)
-- `Z` = Bug fixes, regressions, and stability patches
-- `-ex` suffix marks releases exclusive to the Ex line
+- **Fixed broken single and multi downloads** — `create_model_item` was missing the `version_id` parameter, causing downloads to fail silently. The parameter is now accepted and correctly resolved from model metadata before enqueuing.
 
-Examples:
-- `v0.6.3-ex`: First Ex release — Neo v0.6.3 features for A1111 and Forge Classic
-- `v0.6.4-ex`: Ex-specific bug fix on top of the v0.6.3 base
-- `v0.7.0-ex`: New feature set, backward-compatible
+### v0.4.1-ex — Exact Search Fix
 
----
+- **Exact search fixed** — exact search (quoted term) now only applies to **Model name** queries. Previously it was incorrectly applied to Tag and User name searches, causing the CivitAI API to return no results.
 
-## 🆕 What's New — v0.2.1-ex
+### v0.4.0-ex — Download Reliability & Update Mode Improvements
 
-- **Wildcards get their own subfolder** — each wildcard pack downloads into `wildcards/<model-name>/` by default, compatible with sd-dynamic-prompts `__subfolder/name__` syntax
-- **Flat zip extraction for wildcards** — files inside the zip are placed directly in the target folder with no internal folder structure, preventing double-nesting
-- **No preview images for wildcards** — `save_preview` and `save_images` are skipped for Wildcards
-- **Configurable base-model split for wildcards** — new setting `Organize wildcards by base model` (off by default)
+- **Faster batch downloads** — the queue now processes multiple items in a single internal loop, eliminating delays between downloads caused by Gradio event round-trips.
+- **Smarter integrity checks** — if a downloaded file fails SHA256 verification, the extension automatically re-queries the CivitAI API to detect silent file updates by the author. If the hash matches the new API value, the file is accepted and metadata is updated instead of failing.
+- **Defensive hash search** — searching by SHA256 that returns unexpected response structures no longer crashes; the code safely handles lists and missing fields.
+- **Update Mode isolation** — when loading outdated models into the Browser, Refresh and page-slider triggers no longer pull the Browser tab's filters into the Update Mode view. Update Mode state is now fully isolated.
+- **Outdated list sorted by recency** — the update list is now ordered by file modification time (newest first), making it easier to prioritize which models to update first.
+- **SHA256 verification speed-up** — post-download hash check now uses an 8 MB read buffer instead of 1 MB.
+- **Re-trigger protection** — fixed a race condition where the Queue Trigger could fire twice for the same download, causing duplicate processing.
+- **Better card sync** — card status updates are now queued when the user is on another tab and applied automatically when they return to the Browser tab.
+- **More stable observers** — MutationObservers now target `document.documentElement` instead of `document.body`, preventing rare crashes during early DOM initialization.
 
 ---
 
 ## 📖 Changelog
+
+### v0.4.2-ex — Download Fix
+- Added missing `version_id` parameter to `create_model_item`.
+- `selected_to_queue` now passes `version_id` when enqueuing batch items.
+- `download_start` now resolves `version_id` from `gl.json_data` before enqueuing single downloads.
+
+### v0.4.1-ex — Exact Search Fix
+- Batch download internal loop: process entire queue in one Gradio event to eliminate inter-item gaps.
+- SHA256 silent-update detection: on mismatch, re-query `/api/v1/model-versions/{id}` to accept author-updated files.
+- Defensive SHA256 search: handle list responses and missing `modelId` gracefully.
+- Update Mode filter isolation: `initial_model_page` respects `update_mode` and ignores Browser-tab filters when active.
+- Outdated models sorted by file modification time (descending) for easier prioritization.
+- Increased SHA256 verification buffer from 1 MB to 8 MB.
+- Queue Trigger re-trigger fix: return `gr.update()` without value when queue is empty.
+- Card update polling: pending updates are applied when user returns to the Browser tab.
+- MutationObserver stability: observe `document.documentElement` instead of `document.body`.
+
+### v0.3.0-ex — CivitAI Domain Support & Accumulated Fixes
+
+**CivitAI Domain Support (new in this release):**
+- Added centralized domain helper to replace all hardcoded `civitai.com` URLs across the extension.
+- Added `civitai_sfw_only` checkbox setting (default: off → `civitai.red`) to toggle between domains.
+- Fixed search-box direct-link parser to recognize both `civitai.com` and `civitai.red` URLs.
+- Updated all API calls, model page links, uploader profile links, `Referer` headers, and JSON sidecar `modelPageURL` fields to use the configured domain.
+
+**Accumulated fixes since v0.2.4-ex:**
+- Added exponential backoff retry for transient API errors (50x, timeouts).
+- Added trigger word group preservation in local `.json` sidecar cache.
+- Added checkpoint SHA256 cache sync with Forge on download and manual scan.
+- Added safer delete flow: installed-version priority in Browser dropdown, multi-version quick-delete failsafe, and hybrid local-only card fallback for unmatched files.
+
+### v0.2.4-ex — Trigger Word Consolidation
+- Consolidated trigger words from `.safetensors` metadata, local `.json` `activation text`, and API `trainedWords`
+- Added case-insensitive deduplication while preserving original order
+- Model info now uses local consolidated trigger words first, with API fallback when local cache is unavailable
+
+### v0.2.3-ex — Per-group Trigger Word Rows
+- Each trigger word group gets its own row with individual copy and add-to-prompt buttons
+- LORA tag row (`<lora:filename:1>`) shown as first entry in purple/monospace
+- Clipboard copy with ✓ visual feedback (1.5s)
+- "Add all to prompt" button when multiple groups exist
+
+### v0.2.2-ex — Startup Crash Fix
+- Fixed `NameError: name 'update_mode_banner' is not defined` — component was used as a Gradio callback output but never declared in the Browser tab layout
 
 ### v0.2.1-ex — Wildcard Download Improvements
 - Own subfolder per wildcard download (sd-dynamic-prompts compatible)
@@ -69,30 +105,21 @@ Examples:
 - New settings: `wildcard_own_folder` (ON by default), `wildcard_organize_by_base` (OFF by default)
 
 ### v0.2.0-ex
-- [x] Update Selected — queue only checked cards, dynamic button label
-- [x] Smart version selection by base model filter
-- [x] Downloads survive screen lock / SSE disconnect (Win+L, RunPod)
-- [x] EARLY_ACCESS/NO_API: no more stray saves or unrelated file deletes
-- [x] Embeddings folder auto-detection (old and new layout support)
-- [x] Warn when both embeddings folders have content
-- [x] Fixed send-to-txt2img intermittent failure
-- [x] Guard against None `json_data` in session restore
-- [x] Fixed `UnboundLocalError` for `model_folder` in update flow
-- [x] Guard `None preview_html` in `save_images`
-- [x] Fixed `_debug_log` message format
-
----
+- Update Selected — queue only checked cards, dynamic button label
+- Smart version selection by base model filter
+- Downloads survive screen lock / SSE disconnect (Win+L, RunPod)
+- EARLY_ACCESS/NO_API: no more stray saves or unrelated file deletes
+- Embeddings folder auto-detection (old and new layout support)
+- Warn when both embeddings folders have content
+- Fixed send-to-txt2img intermittent failure
+- Guard against None json_data in session restore
+- Fixed UnboundLocalError for model_folder in update flow
+- Guard None preview_html in save_images
+- Fixed _debug_log message format
 
 ### v0.1.0-ex
-- [x] Native Gradio 3.x compatibility — fully tested on A1111 and Forge Classic
-- [x] SHA256 post-download integrity check — corrupted or truncated files detected and removed automatically
-- [x] Instant batch enqueue — queuing 10 models is as fast as queuing 1
-- [x] Thread-safe cancel — reliable cancel for individual and all downloads
-- [x] Aria2 auto-reconnect — RPC process auto-restarts if unreachable during a download
-- [x] Creator Management — favorite / ban creators with instant filtering
-- [x] Dashboard — disk usage, pie chart, top file rankings, CSV/JSON export
-- [x] Auto-Organization — sort models into subfolders by architecture
-
+- Native Gradio 3.x compatibility
+- Initial EX baseline for A1111 / Forge Classic
 
 ---
 
@@ -102,347 +129,110 @@ Examples:
 
 ### v0.2.0-ex — Stability & Feature Sync *(complete)* ✅
 
-### v0.2.1-ex — Wildcard Improvements *(current)*
-- Wildcards get their own subfolder per download
-- Flat zip extraction for wildcards — no double-nesting
-- Skip preview/images for wildcards
-- New settings: `wildcard_own_folder` (ON) and `wildcard_organize_by_base` (OFF)
+### v0.2.1-ex — Wildcard Improvements *(complete)* ✅
 
-### v0.3.0-ex — Stabilization *(planned)*
-- A1111-specific path handling improvements
-- Forge Classic quirks and fixes
-- Testing on different Gradio 3.x minor versions
+### v0.2.2-ex — Startup Crash Fix *(complete)* ✅
 
-### v0.4.0-ex — Extended Features *(planned)*
+### v0.2.3-ex — Per-group Trigger Word Rows *(complete)* ✅
+
+### v0.2.4-ex — Trigger Word Consolidation *(complete)* ✅
+
+### v0.3.0-ex — CivitAI Domain Support *(complete)* ✅
+
+### v0.4.0-ex — Download Reliability & Update Mode Improvements *(complete)* ✅
+
+### v0.4.1-ex — Exact Search Fix *(current)*
+- Exact search restricted to Model name only — CivitAI API does not support quoted search for Tag or User name
+
+### v0.5.0-ex — Extended Features *(planned)*
 - Saved search presets
-- Favorites in creator search dropdown
-- SHA256 cache injection (read `.json` sidecars → populate `cache.json` instantly)
-- **Organization by Tag — Phase 1**: save CivitAI tags to `.json` sidecar; editable user-tags in model panel
-- **Organization by Tag — Phase 2**: pick anchor tags in Manage tab → models sort into `<type>/<tag>/` subfolders
+- Favorites in creator/user search
+- Additional browser quality-of-life improvements
+- **Organization by Tag — Phase 1**: save CivitAI tags to `.json` sidecar; editable user-tags field in model panel for manual assignment
+- **Organization by Tag — Phase 2**: in Manage tab, pick "anchor" tags → models with that tag sort into `<type>/<tag>/` subfolders (independent of base-model organization)
+
+### v1.0.0-ex — First Stable Release *(planned)*
+- All known issues resolved
+- Full A1111/Forge Classic compatibility guarantee
 
 ---
 
-## 🎯 Features
-
-> All features work natively on A1111, Forge Classic, and any Gradio 3.x SD WebUI
+## 🚀 Features
 
 ### 🔍 Browse & Search
 
-- **Browse CivitAI** directly inside the WebUI — no browser switching needed
-- **Search by keyword, tag, or username** — multiple search modes
-- **Filter by content type**: Checkpoint, LORA, LoCon, DoRA, VAE, ControlNet, Upscaler, TextualInversion, Wildcards, Workflows, and more
-- **Filter by base model**: SD 1.x, SDXL, Pony, Illustrious, NoobAI, and more — **auto-updated from CivitAI API** at startup (no hardcoded stale list)
-- **Sort by**: Highest Rated, Most Downloaded, Newest, Most Liked, Most Discussed
-- **Filter by time period**: Day, Week, Month, Year, All Time
-- **NSFW toggle**: Show/hide NSFW content
-- **Liked models only**: Filter to models you've liked on CivitAI (requires API key)
-- **Hide installed models**: Declutter the browser by hiding already-downloaded models
-- **Hide banned creators**: Client-side toggle that instantly hides cards from banned creators without a new search
-- **Exact search**: Match search terms exactly instead of fuzzy
-- **Search settings persist**: Sort, NSFW state, base model filter — all saved across restarts
+- Browse CivitAI directly inside your WebUI — no tab switching needed
+- Filter by content type, base model, sort order, time period, and NSFW
+- Base model list is auto-updated from CivitAI API at startup
+- Favorite or ban creators with instant card filtering
+- Search settings persist across restarts
 
 ### 📥 Download
 
-- **Download any model, version, and file** directly from the browser
-- **Aria2 high-speed multi-connection downloads** — optional, enabled by default
-- **Download queue** — multiple downloads run in sequence without blocking the UI
-- **Queue persistence** — the download queue is logged server-side; if the browser disconnects, a restore banner appears on reconnect
-- **Cancel downloads** individually or all at once
-- **Auto-set save folder** based on content type — no manual path typing needed
-- **Custom sub-folders** — choose or create sub-folders per download
-- **Custom save folder per type** — configure paths in Settings
-- **Download URL override** — paste a direct URL to download a specific file
-- **Proxy support** — SOCKS4/SOCKS5 for regions with restricted access
-- **API key support** — download early access and private models with your CivitAI API key
+- Download any model, version, and file in one click
+- Aria2 high-speed multi-connection downloads
+- Download queue — multiple downloads run in sequence without blocking the UI
+- Queue persistence — restore banner after browser disconnect; re-queue everything with one click
+- SHA256 integrity check — every download verified; corrupted files caught and removed automatically
+- Instant batch enqueue — queuing 10 models is as fast as queuing 1
+- Cancel downloads individually or all at once
 
 ### 🔄 Model Updates
 
-- **Outdated card detection** — orange border on cards that have a newer version available
-- **Batch update** — select multiple outdated models via checkbox and download all at once
-- **Precise version comparison** — compares model family + version string (configurable)
-- **Retention policy** — when updating, choose: `keep` both files, `move to _Trash`, or `replace` (permanent delete)
-- **Audit log** — `ex_update_audit.jsonl` records every scan and retention action for traceability
-- **Dashboard update summary** — after scanning, the Dashboard shows a live banner with outdated counts per type
+- Outdated card detection — orange border on cards with a newer version available
+- Batch update from cards: select multiple and download all at once
+- Retention policy on update: keep, trash, or replace
+- Audit log: `ex_update_audit.jsonl`
 
 ### 🗂️ Auto-Organization
 
-- **Organize new downloads automatically** into subfolders by base model type (SDXL/, Pony/, Illustrious/, etc.)
-- **Organize existing models** in one click from the Update Models tab
-- **Validate organization** — read-only scan that checks every model against its `.json` metadata and reports ✅ correct / ❌ misplaced / ⚠️ no-metadata, with a per-file table
-- **Fix misplaced files** — after validation, move only the flagged models to their correct subfolders in one click; backup created automatically
-- **Backup before organizing** — automatic snapshot of current folder structure
-- **One-click rollback** — restore previous structure at any time (keeps last 5 backups)
-- **Custom category patterns** — define your own base model → folder mapping in Settings (JSON)
-- **Associated files moved together** — `.json`, `.png`, `.preview.png`, `.txt` files travel with the model
+- Automatically sort new downloads into subfolders by architecture (SDXL/, Pony/, Illustrious/, etc.)
+- Organize your entire existing collection in one click
+- Validate organization — read-only per-file scan
+- Fix misplaced files — moves flagged models with automatic backup
+- Full backup & one-click rollback (keeps last 5 backups)
+- Custom category patterns via JSON in Settings
 
-### 🖼️ Model Info & Preview
+### 📊 Dashboard
 
-- **Model information panel** — shows name, version, base model, type, trained tags, permissions, description
-- **Sample images** with a **"Send to txt2img"** button per image — fills prompt, negative, sampler, steps, CFG all at once
-- **Individual meta field buttons** — click any field (Prompt, Negative, Seed, CFG...) to send just that value to txt2img. **Shift+click appends** to your existing prompt instead of replacing
-- **Trained tags / trigger words** — displayed in the model info panel and in the **model overlay popup** (CivitAI icon on txt2img/img2img cards). The **"➕ Add to prompt" button** appends activation tags directly to your txt2img prompt; for **LORA models it automatically prepends `<lora:filename:1>`**
-- **SHA256 in Version Information** — the model info overlay shows the SHA256 hash of the selected file; click once to select all for easy copy
-- **Video preview** support — model cards with video samples play on hover (muted, loops automatically)
-- **Image viewer** — click any preview image to open it fullscreen
-- **Resize preview images** in cards — configurable max resolution (128–1024px) for faster loading
-- **Save model info** — saves model data as `.json` and HTML with all sample images
-- **Save images** — downloads all sample images locally
-- **Use local HTML** — when clicking the CivitAI button on a model card in txt2img, open the locally saved HTML instead of fetching from the internet
-
-### 📊 Dashboard & Statistics
-
-- **Disk usage by category** — see exactly how much space each model type and architecture uses
-- **File count per category** — know exactly what you have
-- **Organized by base model** — Checkpoints and LORAs broken down by type (Pony, SDXL, Illustrious, etc.)
-- **Visual progress bars** and percentage breakdown
-- **Pie chart** with legend
-- **Hide empty categories** toggle for a cleaner view
-- **Scan summary** — folders scanned, scan duration, skipped files, read errors
-- **Export CSV / JSON** — download dashboard data to a file
-
-### 🃏 Model Cards
-
-- **Color-coded borders**: green = installed, orange = update available, blue = early access, none = not installed
-- **Color legend bar** — always-visible reference above the card grid
-- **NSFW badge** on cards marked as adult content (configurable)
-- **"Paid" badge** (💎) for early access models
-- **Model type badge** on each card
-- **Tile size** — configurable card size (smaller = more cards per row)
-- **Sort by date** — group cards by upload date
-- **Hide installed models** — remove already-downloaded models from the grid
-- **Multi-select** — checkbox on outdated cards to select multiple for batch download
-- **Quick delete** on installed/outdated cards — removes model directly from the card
-- **👤 Creator Management** — ⭐ favorite or 🚫 ban a creator directly from the browser; favorited creator cards get a gold glow and ⭐ badge; banned creators can be hidden in one click
+- Disk usage broken down by model type and architecture
+- Pie chart, progress bars, percentage breakdown
+- Top 10 largest files and top categories
+- Export CSV / JSON
 
 ### 🔒 Safety & Integrity
 
-- **Send deleted models to Trash** (OS recycle bin) instead of permanent delete — configurable in Settings (default: ON)
-- **SHA256 post-download integrity check** — corrupted or truncated files caught automatically
-- **Filename length limit (246 bytes / UTF-8)** — prevents filesystem errors on Linux
-- **Illegal character sanitization** in filenames — removes characters forbidden by the OS automatically
-
-### ⚙️ Settings
-
-All settings are in **Settings → CivitAI Browser Ex**:
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Personal API key | — | Required for some downloads and liked-only search |
-| Hide early access models | OFF | Hides models behind a paywall |
-| Individual prompt buttons | ON | Click each meta field to send it to txt2img |
-| Shift+click meta fields | — | Appends to existing prompt instead of replacing |
-| Move deleted to Trash | ON | OS recycle bin instead of permanent delete |
-| Resize preview cards | ON | Resizes card thumbnails for faster loading |
-| Resize preview size | 512px | Max width for card thumbnails |
-| Video playback | ON | Card thumbnails play video on hover (muted) |
-| Use local HTML | OFF | Open local HTML when clicking CivitAI button |
-| Page navigation as header | OFF | Sticky top navigation bar |
-| Auto-organize downloads | OFF | Organize new downloads by base model type |
-| Retention policy | replace | What to do with old files on update |
-| Debug prints | OFF | Verbose console output for troubleshooting |
-| Use Aria2 | ON | High-speed multi-connection downloads |
-| Proxy address | — | SOCKS4/SOCKS5 proxy for restricted regions |
+- Deleted models go to OS Trash by default
+- SHA256 post-download integrity check
+- Filename length capped at 246 UTF-8 bytes (Linux safe)
+- Illegal character sanitization
 
 ---
 
 ## 📦 Installation
 
-1. Open your WebUI
-2. Navigate to **Extensions** → **Install from URL**
+1. Open your WebUI (A1111 or Forge Classic)
+2. Go to **Extensions** → **Install from URL**
 3. Paste: `https://github.com/eduardoabreu81/sd-civitai-browser-ex`
-4. Click **Install** and reload WebUI
+4. Click **Install** and reload the WebUI
 
-### Requirements
-
-- ✅ [Automatic1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui), [Forge Classic](https://github.com/Haoming02/sd-webui-forge-classic), or any Gradio 3.x SD WebUI
-- ✅ Python 3.10+
-- ✅ Gradio 3.15+ (comes with the WebUI)
-
-> 💡 **Forge Neo user?** We recommend [sd-civitai-browser-neo](https://github.com/eduardoabreu81/sd-civitai-browser-neo) for an even better experience on Forge Neo.
-
----
-
-## 📁 Auto-Organization System
-
-### How It Works
-
-The organization system analyzes your models based on their `baseModel` metadata (stored in `.json` files) and automatically organizes them into subfolders.
-
-#### **Before Organization:**
-```
-models/Lora/
-├── model1.safetensors (SDXL)
-├── model2.safetensors (Pony)
-├── model3.safetensors (Illustrious)
-├── random_folder/
-│   └── model4.safetensors (SD1.5)
-└── ...
-```
-
-#### **After Organization:**
-```
-models/Lora/
-├── SDXL/
-│   ├── model1.safetensors
-│   ├── model1.json
-│   └── model1.png
-├── Pony/
-│   └── model2.safetensors
-├── Illustrious/
-│   └── model3.safetensors
-├── SD/
-│   └── model4.safetensors
-└── ...
-```
-
-### Safety Features
-
-- ✅ **Automatic Backup**: Creates backup before any operation
-- ✅ **One-Click Undo**: Restore original structure anytime
-- ✅ **Associated Files**: Moves `.json`, `.png`, `.txt` files together
-- ✅ **Conflict Detection**: Skips files that already exist at destination
-- ✅ **Error Recovery**: Continues operation even if some files fail
-
----
-
-## 📊 Dashboard & Statistics
-
-### Overview
-
-The Dashboard provides comprehensive insight into your model collection with detailed disk usage statistics organized by model type and architecture.
-
-### Example Output
-
-```
-2294 files (1.4 TB) → 12 categories
-
-┌────────────────────────┬───────┬──────────────┬────────────┐
-│ MODEL TYPE             │ FILES │ TOTAL SIZE   │ % OF TOTAL │
-├────────────────────────┼───────┼──────────────┼────────────┤
-│ Checkpoint → Other     │ 148   │ 968.3 GB     │ 70.0%      │
-│ LORA → Other           │ 1960  │ 366.6 GB     │ 26.5%      │
-│ LORA → SDXL            │ 59    │ 17.7 GB      │ 1.3%       │
-│ Checkpoint → Illust... │ 2     │ 13.2 GB      │ 1.0%       │
-│ LORA → SD              │ 66    │ 6.6 GB       │ 0.5%       │
-│ LORA → Pony            │ 2     │ 386.7 MB     │ 0.0%       │
-│ VAE                    │ 5     │ 1.2 GB       │ 0.1%       │
-└────────────────────────┴───────┴──────────────┴────────────┘
-```
-
----
-
-## 🎨 Supported Model Types
-
-> Forge Classic and A1111 are focused on **SD1 and SDXL** checkpoints. The organization system can still categorize any model type found in your collection, but only SD and SDXL families can be used for generation.
-
-| Category | Detection patterns | Notes |
-|----------|-------------------|-------|
-| **SD** | SD 1, SD1, SD 2, SD2 | SD 1.x and SD 2.x |
-| **SDXL** | SDXL | Base SDXL |
-| **Pony** | PONY | Pony V6 and variants (SDXL-based) |
-| **Illustrious** | ILLUSTRIOUS | Illustrious XL (SDXL-based) |
-| **NoobAI** | NOOBAI, NOOB AI, NAI | NoobAI v-pred (SDXL-based) |
-| **Other** | (unrecognized) | Configurable |
-
-### Custom Categories
-
-You can define your own categories in **Settings** → **Model Organization** using JSON format:
-
-```json
-{
-  "SD": ["SD 1", "SD1", "SD 2", "SD2"],
-  "SDXL": ["SDXL"],
-  "MyCustomType": ["CUSTOM", "PATTERN"]
-}
-```
-
----
-
-## ⚠️ Known Issues
-
-- Some models may not have `baseModel` metadata (download from CivitAI to get it)
-- Dashboard shows "Unorganized" for files placed directly in root model folders
-- Rollback only works for the last operation
-- Maximum 5 backups are kept (older ones are deleted)
-- Queue restore banner: after a browser disconnect, click the banner manually to restore your queue; the feature is fully functional
-
-## 💡 Tips
-
-- **First time using?** Update model info & tags to generate `.json` files with metadata
-- **Want to see your collection?** Use Dashboard tab to analyze disk usage
-- **Want custom folders?** Edit JSON in Settings → Model Organization
-- **Made a mistake?** Use "Undo Organization" button immediately
-- **Need help?** Check console logs (`[CivitAI Browser Ex]` prefix)
+**Requirements:** A1111 or Forge Classic or any Gradio 3.x SD WebUI · Python 3.10+
 
 ---
 
 ## 📄 Credits
 
-### Project Lineage
-
-```
-sd-civitai-browser (Vetchems)
-  └── sd-civitai-browser-plus (BlafKing)
-        ├── sd-civitai-browser-plus (anxety-solo fork)
-        └── sd-civitai-browser-neo (Eduardo Abreu)
-              └── sd-civitai-browser-ex (Eduardo Abreu)  ← this project
-```
-
-### Original Project
-- **[sd-civitai-browser](https://github.com/Vetchems/sd-civitai-browser)** by Vetchems
-- **[sd-civitai-browser-plus](https://github.com/BlafKing/sd-civitai-browser-plus)** by BlafKing
-
-### Feature Inspiration
-- **[sd-webui-civbrowser](https://github.com/SignalFlagZ/sd-webui-civbrowser)** by SignalFlagZ — Creator Management pattern (UserInfo class, `.txt` storage, accordion UI, mutually exclusive lists)
-
-### Anxety-Solo Fork
-- **[sd-civitai-browser-plus](https://github.com/anxety-solo/sd-civitai-browser-plus)** by anxety-solo
-  - Modern UI redesign
-  - Quality of life improvements
-  - Multiple bugfixes
-
-### Neo Version (direct parent)
-- **[sd-civitai-browser-neo](https://github.com/eduardoabreu81/sd-civitai-browser-neo)** by Eduardo Abreu
-  - Forge Neo compatibility (Gradio 4.x)
-  - Auto-organization system
-  - Dashboard & statistics
-  - Download reliability features (SHA256, batch deferral, aria2 reconnect)
-  - Creator management (favorite/ban)
-
-### Ex Version (this project)
-- **[sd-civitai-browser-ex](https://github.com/eduardoabreu81/sd-civitai-browser-ex)** by Eduardo Abreu
-  - Native A1111 and Forge Classic support (Gradio 3.x)
-  - All Neo v0.6.3 features brought to classic WebUIs
-
-### Special Thanks
-- All contributors to the original projects
-- CivitAI for their amazing API
+- **[sd-civitai-browser](https://github.com/Vetchems/sd-civitai-browser)** by Vetchems — original project
+- **[sd-civitai-browser-plus](https://github.com/BlafKing/sd-civitai-browser-plus)** by BlafKing — foundation for this fork
+- **[sd-civitai-browser-plus](https://github.com/anxety-solo/sd-civitai-browser-plus)** by anxety-solo — UI redesign and quality improvements
+- **[sd-webui-civbrowser](https://github.com/SignalFlagZ/sd-webui-civbrowser)** by SignalFlagZ — creator management inspiration
+- **[Forge Classic](https://github.com/Haoming02/sd-webui-forge-classic/)** by Haoming02
 
 ---
 
 ## 📜 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to:
-- 🐛 Report bugs
-- 💡 Suggest new features
-- 🔧 Submit pull requests
-- 📖 Improve documentation
-
----
-
-## ☕ Support
-
-If you find this extension helpful, consider:
-- ⭐ Starring the repository
-- 🐛 Reporting issues
-- 📢 Sharing with others
-- ☕ [Buy me a coffee](https://ko-fi.com/eduardoabreu81)
+MIT — see [LICENSE](LICENSE)
 
 ---
 
@@ -450,6 +240,6 @@ If you find this extension helpful, consider:
 
 Made with ❤️ for the Stable Diffusion community
 
-**[Report Bug](https://github.com/eduardoabreu81/sd-civitai-browser-ex/issues)** • **[Request Feature](https://github.com/eduardoabreu81/sd-civitai-browser-ex/issues)** • **[Discussions](https://github.com/eduardoabreu81/sd-civitai-browser-ex/discussions)**
+**[Report Bug](https://github.com/eduardoabreu81/sd-civitai-browser-ex/issues)** • **[Request Feature](https://github.com/eduardoabreu81/sd-civitai-browser-ex/issues)** • **[Discussions](https://github.com/eduardoabreu81/sd-civitai-browser-ex/discussions)** • **[☕ Ko-fi](https://ko-fi.com/eduardoabreu81)**
 
 </div>

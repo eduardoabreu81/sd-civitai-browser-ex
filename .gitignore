@@ -5,6 +5,8 @@
 AGENTS.local.md
 docs/PROJECT_LOG.md
 .specstory/
+.github/internal-sync-rules.md
+docs/INTERNAL_SYNC_RULES.md
 
 # ============================================
 # Runtime / Cache / Estado da aplicação
@@ -36,3 +38,7 @@ ENV/
 *.swo
 *~
 .DS_Store
+
+# Internal agent documentation
+AGENTS.md
+

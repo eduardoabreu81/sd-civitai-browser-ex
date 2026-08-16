@@ -1,3 +1,53 @@
+// Pending card updates queue — applied when user returns to the Browser tab
+let pendingCardUpdates = [];
+
+function applyPendingCardUpdates() {
+    if (!pendingCardUpdates.length) return;
+    const parentDiv = document.querySelector('.civmodellist');
+    if (!parentDiv) return;
+    const remaining = [];
+    pendingCardUpdates.forEach((update) => {
+        const found = _tryUpdateCard(update);
+        if (!found) remaining.push(update);
+    });
+    pendingCardUpdates = remaining;
+}
+
+function _tryUpdateCard(modelNameWithSuffix) {
+    const lastDotIndex = modelNameWithSuffix.lastIndexOf('.');
+    const modelName = modelNameWithSuffix.slice(0, lastDotIndex);
+    const suffix = modelNameWithSuffix.slice(lastDotIndex + 1);
+    let additionalClassName = '';
+    switch (suffix) {
+        case 'None': additionalClassName = ''; break;
+        case 'Old': additionalClassName = 'civmodelcardoutdated'; break;
+        case 'New': additionalClassName = 'civmodelcardinstalled'; break;
+        default: return false;
+    }
+    const parentDiv = document.querySelector('.civmodellist');
+    if (!parentDiv) return false;
+    const cards = parentDiv.querySelectorAll('.civmodelcard');
+    let found = false;
+    cards.forEach((card) => {
+        const onclickAttr = card.getAttribute('onclick');
+        if (onclickAttr && onclickAttr.includes(`select_model('${modelName}', event)`)) {
+            const hasEarlyAccess = card.classList.contains('early-access');
+            const hasNsfw = card.classList.contains('civcardnsfw');
+            const earlyAccessClass = hasEarlyAccess ? ' early-access' : '';
+            const nsfwClass = hasNsfw ? ' civcardnsfw' : '';
+            card.className = `civmodelcard${earlyAccessClass}${nsfwClass} ${additionalClassName}`;
+            found = true;
+        }
+    });
+    return found;
+}
+
+// Poll pending updates every 3 seconds + apply immediately when tab becomes visible
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) applyPendingCardUpdates();
+});
+setInterval(applyPendingCardUpdates, 3000);
+
 // Selects a model by pressing on card
 function select_model(model_name, event, bool = false, content_type = null, sendToBrowser = false) {
     if (event) {
@@ -81,37 +131,12 @@ function addOrUpdateRule(styleSheet, selector, newRules) {
 // === ANXETY EDITs ===
 // Updates card border
 function updateCard(modelNameWithSuffix) {
-    const lastDotIndex = modelNameWithSuffix.lastIndexOf('.');
-    const modelName = modelNameWithSuffix.slice(0, lastDotIndex);
-    const suffix = modelNameWithSuffix.slice(lastDotIndex + 1);
-    let additionalClassName = '';
-    switch (suffix) {
-        case 'None':
-            additionalClassName = '';
-            break;
-        case 'Old':
-            additionalClassName = 'civmodelcardoutdated';
-            break;
-        case 'New':
-            additionalClassName = 'civmodelcardinstalled';
-            break;
-        default:
-            return;
-    }
-    const parentDiv = document.querySelector('.civmodellist');
-    if (parentDiv) {
-        const cards = parentDiv.querySelectorAll('.civmodelcard');
-        cards.forEach((card) => {
-            const onclickAttr = card.getAttribute('onclick');
-            if (onclickAttr && onclickAttr.includes(`select_model('${modelName}', event)`)) {
-                // Preserve important classes that should not be lost
-                const hasEarlyAccess = card.classList.contains('early-access');
-                const hasNsfw = card.classList.contains('civcardnsfw');
-                const earlyAccessClass = hasEarlyAccess ? ' early-access' : '';
-                const nsfwClass = hasNsfw ? ' civcardnsfw' : '';
-                card.className = `civmodelcard${earlyAccessClass}${nsfwClass} ${additionalClassName}`;
-            }
-        });
+    const found = _tryUpdateCard(modelNameWithSuffix);
+    if (!found) {
+        // Card not present in DOM yet (user may be on another tab) — queue for later
+        if (!pendingCardUpdates.includes(modelNameWithSuffix)) {
+            pendingCardUpdates.push(modelNameWithSuffix);
+        }
     }
 }
 
@@ -151,7 +176,7 @@ function attachVideoHoverPlay(card) {
     });
 
     function startObserver() {
-        const container = document.querySelector('.civmodellist') || document.body;
+        const container = document.querySelector('.civmodellist') || document.documentElement;
         observer.observe(container, { childList: true, subtree: true });
         attachAll(container);
     }
@@ -1058,6 +1083,26 @@ function downloadBlobFile(content, filename, mimeType) {
     }
 }
 
+function copyTriggerWord(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+    }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (_) {}
+        document.body.removeChild(ta);
+        const orig = btn.textContent;
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+    });
+}
+
 // Sends trained tags (trigger words) to txt2img prompt
 // Shift+click appends to existing prompt; regular click replaces
 function sendTagsToPrompt(tags) {
@@ -1665,7 +1710,7 @@ function initializeImageViewer() {
         });
 
         // Start observing
-        previewMediaObserver.observe(document.body, {
+        previewMediaObserver.observe(document.documentElement, {
             childList: true,
             subtree: true,
         });
@@ -1673,10 +1718,21 @@ function initializeImageViewer() {
 }
 
 // Delete installed model with confirmation
-function deleteInstalledModel(event, modelString, sha256) {
+function deleteInstalledModel(event, modelString, sha256, installedCount = 1) {
     // Stop event propagation to prevent card selection
     event.stopPropagation();
     event.preventDefault();
+
+    const installedTotal = Number(installedCount || 0);
+    if (installedTotal > 1) {
+        select_model(modelString, null);
+        alert(
+            `This model has ${installedTotal} installed versions.\n\n` +
+            'For safety, quick delete is disabled.\n' +
+            'Please choose the exact [Installed] version in the Browser panel and use "Delete model" there.'
+        );
+        return;
+    }
     
     if (!sha256) {
         alert('Error: No SHA256 hash available for this model. Cannot delete.');

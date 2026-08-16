@@ -47,6 +47,11 @@ def is_early_access(version_data):
     avail = version_data.get('availability')
     return isinstance(avail, str) and avail == 'EarlyAccess'
 
+
+def get_civitai_domain():
+    """Return the configured CivitAI domain based on SFW-only toggle."""
+    return 'civitai.com' if getattr(opts, 'civitai_sfw_only', False) else 'civitai.red'
+
 # This nsfwlevel system is not accurate...
 def is_model_nsfw(model_data, nsfw_level=12):
     """Determine if a model is NSFW based on its metadata and first image"""
@@ -186,6 +191,79 @@ def contenttype_folder(content_type, desc=None, custom_folder=None):
 
     debug_print(f"Warning: Unknown content_type '{content_type}', no folder mapping found")
     return None
+
+
+def get_local_trigger_words(content_type, model_filename, sha256_value=None, allow_legacy=False):
+    """Try to load trigger words from local .json sidecar.
+
+    Priority is the grouped field used to preserve CivitAI rows.
+    Legacy flat field can be enabled as fallback with allow_legacy=True.
+    """
+    try:
+        if not content_type or not model_filename:
+            return None
+
+        def _extract_groups(data):
+            if not isinstance(data, dict):
+                return None
+
+            raw_groups = data.get('activation text groups')
+            if raw_groups is None:
+                raw_groups = data.get('activation_text_groups')
+
+            groups = []
+            if isinstance(raw_groups, list):
+                groups = [str(g).strip() for g in raw_groups if str(g).strip()]
+            elif isinstance(raw_groups, str) and raw_groups.strip():
+                parsed = None
+                try:
+                    parsed = json.loads(raw_groups)
+                except Exception:
+                    parsed = None
+                if isinstance(parsed, list):
+                    groups = [str(g).strip() for g in parsed if str(g).strip()]
+                else:
+                    groups = [g.strip() for g in re.split(r'[\n\r]+', raw_groups) if g.strip()]
+
+            if groups:
+                return groups
+
+            if allow_legacy and data.get('activation text'):
+                text = data.get('activation text', '')
+                return [t.strip() for t in re.split(r'[,;\n\r]+', text) if t.strip()]
+
+            return None
+
+        model_folder = contenttype_folder(content_type)
+        if not model_folder:
+            return None
+
+        model_folder = Path(model_folder)
+        name_stem = Path(model_filename).stem
+        candidate_names = [f'{name_stem}.json', f'{model_filename}.json']
+
+        for candidate in candidate_names:
+            direct = model_folder / candidate
+            if direct.exists():
+                data = safe_json_load(str(direct))
+                groups = _extract_groups(data)
+                if groups:
+                    return groups
+
+        for candidate in candidate_names:
+            matches = list(model_folder.rglob(candidate))
+            if not matches:
+                continue
+            matches.sort(key=lambda p: len(str(p)))
+            for json_file in matches:
+                data = safe_json_load(str(json_file))
+                groups = _extract_groups(data)
+                if groups:
+                    return groups
+
+        return None
+    except Exception:
+        return None
 
 
 def update_mode_page_html(content_type_filter, base_filter, tile_count, current_page):
@@ -389,11 +467,13 @@ def model_list_html(json_data):
         ## Note: Sensitive check for updates by `name_match`... (It is possible that an outdated version of the model will not be marked as outdated)
         installstatus = ''
         installed_file_sha256 = None  # Track SHA256 of installed file for delete functionality
+        installed_versions_count = 0
         model_versions = item.get('modelVersions', [])
         if model_versions:
             precise_check = getattr(opts, 'precise_version_check', True)
             installed_map, available_map = {}, {}  # family → list of version parts
             installed_all, available_all = [], []  # all versions (no family grouping)
+            installed_versions_found = set()
 
             # --- Collect version and installation info ---
             for version in model_versions:
@@ -416,11 +496,14 @@ def model_list_html(json_data):
                         # Store SHA256 of first installed file found (for delete button)
                         if not installed_file_sha256:
                             installed_file_sha256 = file_sha256
+                        installed_versions_found.add(version_name)
                         if precise_check and family:
                             installed_map.setdefault(family, []).append(version_parts)
                         else:
                             installed_all.append(version_parts)
                         break
+
+            installed_versions_count = len(installed_versions_found)
 
             # Check installed
             has_installed = bool(installed_map or installed_all)
@@ -502,8 +585,8 @@ def model_list_html(json_data):
             sha256_attr = f'data-sha256="{installed_file_sha256}"' if installed_file_sha256 else ''
             card_html += (
                 f'<div class="delete-button-container">'
-                f'<button class="delete-model-btn" {sha256_attr} data-model-name="{model_name_js}" '
-                f'onclick="deleteInstalledModel(event, \'{model_string}\', \'{installed_file_sha256 or ""}\')" title="Delete model">'
+                f'<button class="delete-model-btn" {sha256_attr} data-model-name="{model_name_js}" data-installed-count="{installed_versions_count}" '
+                f'onclick="deleteInstalledModel(event, \'{model_string}\', \'{installed_file_sha256 or ""}\', {installed_versions_count})" title="Delete model">'
                 f'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">'
                 f'<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>'
                 f'</svg>'
@@ -515,8 +598,8 @@ def model_list_html(json_data):
             sha256_attr = f'data-sha256="{installed_file_sha256}"' if installed_file_sha256 else ''
             card_html += (
                 f'<div class="outdated-card-actions">'
-                f'<button class="delete-model-btn" {sha256_attr} data-model-name="{model_name_js}" '
-                f'onclick="deleteInstalledModel(event, \'{model_string}\', \'{installed_file_sha256 or ""}\')" title="Delete model">'
+                f'<button class="delete-model-btn" {sha256_attr} data-model-name="{model_name_js}" data-installed-count="{installed_versions_count}" '
+                f'onclick="deleteInstalledModel(event, \'{model_string}\', \'{installed_file_sha256 or ""}\', {installed_versions_count})" title="Delete model">'
                 f'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">'
                 f'<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>'
                 f'</svg>'
@@ -626,7 +709,7 @@ def _search_by_sha256(sha256_hash):
         return 'invalid_hash'
 
     # Search for model version by hash
-    api_url = f"https://civitai.com/api/v1/model-versions/by-hash/{normalized_hash}"
+    api_url = f"https://{get_civitai_domain()}/api/v1/model-versions/by-hash/{normalized_hash}"
     headers = get_headers()
     proxies, ssl = get_proxies()
 
@@ -638,13 +721,21 @@ def _search_by_sha256(sha256_hash):
             if 'error' in data:
                 return 'sha256_not_found'
 
+            # Defensive: API may return a list or unexpected structure
+            if isinstance(data, list):
+                if len(data) == 0:
+                    return 'sha256_not_found'
+                data = data[0]
+            if not isinstance(data, dict):
+                return 'sha256_not_found'
+
             # Get model ID and fetch full model data
             model_id = data.get('modelId')
             if not model_id:
                 return 'not_found'
 
-            model_url = f"https://civitai.com/api/v1/models/{model_id}"
-            model_response = requests_get_with_retry(model_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl)
+            model_url = f"https://{get_civitai_domain()}/api/v1/models/{model_id}"
+            model_response = requests.get(model_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl)
 
             if model_response.status_code == 200:
                 model_data = model_response.json()
@@ -672,8 +763,8 @@ def _search_by_sha256(sha256_hash):
         return 'error'
 
 def create_api_url(content_type=None, sort_type=None, period_type=None, use_search_term=None, base_filter=None, only_liked=None, tile_count=None, search_term=None, nsfw=None, exact_search=None, isNext=None):
-    base_url = 'https://civitai.com/api/v1/models'
-    version_url = 'https://civitai.com/api/v1/model-versions'
+    base_url = f'https://{get_civitai_domain()}/api/v1/models'
+    version_url = f'https://{get_civitai_domain()}/api/v1/model-versions'
 
     if isNext != None:
         api_url = gl.json_data['metadata']['nextPage' if isNext else 'prevPage']
@@ -696,19 +787,21 @@ def create_api_url(content_type=None, sort_type=None, period_type=None, use_sear
         search_term = search_term.replace('\\', '\\\\').lower()
 
         # Apply exact search logic - wrap search term in quotes if exact_search is True
-        if exact_search and use_search_term in ['Model name', 'User name', 'Tag']:
+        # NOTE: CivitAI API only supports exact search (quoted term) for Model name.
+        # Tag and User name searches do not support quoting and will return no results.
+        if exact_search and use_search_term == 'Model name':
             # Only wrap in quotes if not already wrapped and contains spaces
             if not (search_term.startswith('"') and search_term.endswith('"')) and ' ' in search_term:
                 search_term = f'"{search_term}"'
 
-        if 'civitai.com' in search_term:
+        if 'civitai.com' in search_term or 'civitai.red' in search_term:
             if '/api/download/models' in search_term:
                 # Extract version ID from download URL
                 version_match = re.search(r'models/(\d+)', search_term)
                 if version_match:
                     version_id = version_match.group(1)
                     # Make API request to get model version information
-                    version_api_url = f"https://civitai.com/api/v1/model-versions/{version_id}"
+                    version_api_url = f"https://{get_civitai_domain()}/api/v1/model-versions/{version_id}"
                     version_data = request_civit_api(version_api_url, skip_error_check=True)
 
                     if isinstance(version_data, dict) and 'modelId' in version_data:
@@ -752,7 +845,16 @@ def create_api_url(content_type=None, sort_type=None, period_type=None, use_sear
 
 ## === ANXETY EDITs ===
 def initial_model_page(content_type=None, sort_type=None, period_type=None, use_search_term=None, search_term=None, current_page=None, base_filter=None, only_liked=None, nsfw=None, exact_search=None, tile_count=None, from_update_tab=False):
-    current_inputs = (content_type, sort_type, period_type, use_search_term, search_term, tile_count, base_filter, nsfw, exact_search)
+    # Update Mode isolation: when update_mode is active, ignore Browser-tab filters
+    # and preserve the update list state. Only exit update_mode via explicit action.
+    if getattr(gl, 'update_mode', False) and not from_update_tab:
+        from_update_tab = True
+        # Preserve previous_inputs so that page navigation within Update Mode
+        # does not trigger a reset to page 1 caused by Browser filter changes.
+        current_inputs = gl.previous_inputs
+    else:
+        current_inputs = (content_type, sort_type, period_type, use_search_term, search_term, tile_count, base_filter, nsfw, exact_search)
+
     if current_inputs != gl.previous_inputs and gl.previous_inputs != None or not current_page:
         current_page = 1
     gl.previous_inputs = current_inputs
@@ -775,8 +877,21 @@ def initial_model_page(content_type=None, sort_type=None, period_type=None, use_
     else:
         api_url = gl.url_list.get(current_page)
         gl.from_update_tab = True
-        if api_url and not api_url.startswith('sha256_search_'):
+        if api_url and api_url.startswith('local_only://'):
+            gl.json_data = {'items': [], 'metadata': {}}
+        elif api_url and not api_url.startswith('sha256_search_'):
             gl.json_data = request_civit_api(api_url)
+
+        fallback_items = getattr(gl, 'local_browser_fallback_items', [])
+        if isinstance(gl.json_data, dict) and fallback_items and current_page == 1:
+            existing_ids = {item.get('id') for item in gl.json_data.get('items', [])}
+            merged_items = list(gl.json_data.get('items', []))
+            for fallback_item in fallback_items:
+                if fallback_item.get('id') not in existing_ids:
+                    merged_items.append(fallback_item)
+            gl.json_data['items'] = merged_items
+            if 'metadata' not in gl.json_data or not isinstance(gl.json_data['metadata'], dict):
+                gl.json_data['metadata'] = {}
 
     max_page = 1
     model_list = []
@@ -961,8 +1076,10 @@ def update_model_versions(model_id, json_input=None, base_filter=None):
                 display_version_names.append(name)
             default_installed = next((name for name in display_version_names if '[Installed]' in name), None)
 
-            # If a base_filter is active, prefer the newest version matching the filter
-            if base_filter:
+            # Always prefer an installed version when one exists so delete actions stay available.
+            if default_installed:
+                default_value = default_installed
+            elif base_filter:
                 filter_normalized = [b.lower() for b in base_filter]
                 default_value = None
                 for i, v in enumerate(version_names):
@@ -971,9 +1088,9 @@ def update_model_versions(model_id, json_input=None, base_filter=None):
                         default_value = display_version_names[i]
                         break
                 if default_value is None:
-                    default_value = default_installed or (display_version_names[0] if display_version_names else None)
+                    default_value = display_version_names[0] if display_version_names else None
             else:
-                default_value = default_installed or (display_version_names[0] if display_version_names else None)
+                default_value = display_version_names[0] if display_version_names else None
 
             return gr.update(choices=display_version_names, value=default_value, interactive=True)  # Version List
 
@@ -1071,6 +1188,7 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
         version_id = None
         for item in api_data['items']:
             if int(item['id']) == int(model_id):
+                is_local_only = bool(item.get('local_only'))
                 content_type = item['type']
                 if content_type == 'LORA':
                     is_LORA = True
@@ -1173,10 +1291,13 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
                                 model_folder = os.path.join(contenttype_folder('TextualInversion'))
 
                 model_url = selected_version.get('downloadUrl', '')
-                model_main_url = f"https://civitai.com/models/{item['id']}"
+                model_main_url = f"https://{get_civitai_domain()}/models/{item['id']}" if not is_local_only else ''
 
-                url = f"https://civitai.com/api/v1/model-versions/{selected_version['id']}"
-                api_version = request_civit_api(url)
+                if is_local_only:
+                    api_version = {'images': []}
+                else:
+                    url = f"https://{get_civitai_domain()}/api/v1/model-versions/{selected_version['id']}"
+                    api_version = request_civit_api(url)
 
                 ## === ANXETY EDITs ===
                 # --- HTML Generation ---
@@ -1345,12 +1466,20 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
                 )
 
                 # Build header block
-                model_page = (
-                    '<div class="model-page-line">'
-                        '<span class="page-label">Model Page:</span>'
-                        f'<a href={model_main_url}?modelVersionId={selected_version["id"]} target="_blank">{escape(str(model_name))}</a>'
-                    '</div>'
-                )
+                if is_local_only:
+                    model_page = (
+                        '<div class="model-page-line">'
+                            '<span class="page-label">Model Source:</span>'
+                            f'<span>{escape(str(model_name))} (Local file only)</span>'
+                        '</div>'
+                    )
+                else:
+                    model_page = (
+                        '<div class="model-page-line">'
+                            '<span class="page-label">Model Page:</span>'
+                            f'<a href={model_main_url}?modelVersionId={selected_version["id"]} target="_blank">{escape(str(model_name))}</a>'
+                        '</div>'
+                    )
 
                 if not creator or model_uploader == 'User not found':
                     uploader_page = (
@@ -1364,7 +1493,7 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
                     uploader_page = (
                         '<div class="model-uploader-line">'
                             '<span class="uploader-label">Uploaded by:</span>'
-                            f'<a href="https://civitai.com/user/{escape(str(model_uploader))}" target="_blank">{escape(str(model_uploader))}</a>'
+                            f'<a href="https://{get_civitai_domain()}/user/{escape(str(model_uploader))}" target="_blank">{escape(str(model_uploader))}</a>'
                             f'{uploader_avatar}'
                         '</div>'
                     )
@@ -1424,26 +1553,62 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
                     '</div>'
                 )
 
-                # Build trigger words block (if trained words exist, or it's a LORA so we can insert the activation syntax)
-                if output_training or is_LORA:
-                    safe_tags = escape(output_training).replace("'", "&#39;") if output_training else ''
-                    display_content = escape(output_training) if output_training else ''
-                    onclick_tags = safe_tags
+                # Build trigger words block — per-group rows with individual copy/add buttons
+                local_trigger_words = None
+                if model_filename and content_type:
+                    local_trigger_words = get_local_trigger_words(content_type, model_filename, sha256_value)
+
+                if local_trigger_words is not None:
+                    raw_trained_words = local_trigger_words
+                else:
+                    raw_trained_words = selected_version.get('trainedWords', [])
+
+                def _sanitize_tw(s):
+                    s = re.sub(r'<[^>]*:[^>]*>', '', s)
+                    s = re.sub(r', ?', ', ', s)
+                    return s.strip(', ')
+                sanitized_groups = [_sanitize_tw(g) for g in raw_trained_words if g and _sanitize_tw(g)]
+
+                if sanitized_groups or is_LORA:
+                    rows_html = ''
+                    all_onclick_parts = []
 
                     if is_LORA and model_filename:
                         lora_stem = os.path.splitext(model_filename)[0]
-                        # safe_stem_js: entities for <> so the browser decodes them to actual chars before JS runs
                         safe_stem_js = lora_stem.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace("'", '&#39;')
                         lora_tag_display = f'&lt;lora:{escape(lora_stem)}:1&gt;'
                         lora_tag_onclick = f'&lt;lora:{safe_stem_js}:1&gt;'
-                        display_content = lora_tag_display + (f', {escape(output_training)}' if output_training else '')
-                        onclick_tags = lora_tag_onclick + (f', {safe_tags}' if safe_tags else '')
+                        rows_html += (
+                            f'<div class="trigger-word-row lora-tag-row">'
+                                f'<div class="trigger-word-actions">'
+                                    f'<button class="tw-copy-btn" onclick="copyTriggerWord(\'{lora_tag_onclick}\', this)" title="Copy">📋</button>'
+                                    f'<button class="tw-add-btn" onclick="sendTagsToPrompt(\'{lora_tag_onclick}\')" title="Add to prompt">➕</button>'
+                                f'</div>'
+                                f'<span class="trigger-word-text">{lora_tag_display}</span>'
+                            f'</div>'
+                        )
+                        all_onclick_parts.append(lora_tag_onclick)
 
+                    for group in sanitized_groups:
+                        safe_group = escape(group).replace("'", '&#39;')
+                        rows_html += (
+                            f'<div class="trigger-word-row">'
+                                f'<div class="trigger-word-actions">'
+                                    f'<button class="tw-copy-btn" onclick="copyTriggerWord(\'{safe_group}\', this)" title="Copy">📋</button>'
+                                    f'<button class="tw-add-btn" onclick="sendTagsToPrompt(\'{safe_group}\')" title="Add to prompt">➕</button>'
+                                f'</div>'
+                                f'<span class="trigger-word-text">{escape(group)}</span>'
+                            f'</div>'
+                        )
+                        all_onclick_parts.append(safe_group)
+
+                    all_onclick = ', '.join(all_onclick_parts)
+                    add_all_label = '➕ Add all to prompt' if len(all_onclick_parts) > 1 else '➕ Add to prompt'
                     trained_words_section = (
                         '<div class="trained-words-block">'
                             '<h3 class="block-header">Trigger Words</h3>'
-                            f'<div class="trained-words-content">{display_content}</div>'
-                            f'<button class="add-to-prompt-btn" onclick="sendTagsToPrompt(\'{onclick_tags}\')">➕ Add to prompt</button>'
+                            f'{rows_html}'
+                            f'<button class="add-to-prompt-btn" onclick="sendTagsToPrompt(\'{all_onclick}\')">{add_all_label}</button>'
                         '</div>'
                     )
                 else:
@@ -1797,7 +1962,7 @@ def get_headers(referer=None, no_api=None):
         'Content-Type': 'application/json'
     }
     if referer:
-        headers['Referer'] = f"https://civitai.com/models/{referer}"
+        headers['Referer'] = f"https://{get_civitai_domain()}/models/{referer}"
     if api_key and not no_api:
         headers['Authorization'] = f"Bearer {api_key}"
 
@@ -1844,10 +2009,26 @@ def request_civit_api(api_url=None, skip_error_check=False):
             response.encoding = 'utf-8'
             try:
                 data = json.loads(response.text)
-                return data
-            except json.JSONDecodeError as e:
-                print(f"CivitAI API: JSON decode error - {e}")
-                return 'error'
+            except json.JSONDecodeError:
+                print(response.text)
+                print('The CivitAI servers are currently offline. Please try again later.')
+                return 'offline'
+            return data
+
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                print(f"Model version not found (404): {api_url}")
+                return 'not_found'
+            
+            if e.response.status_code in [500, 502, 503, 504]:
+                if attempt < max_attempts:
+                    wait_time = base_backoff_seconds * (2 ** (attempt - 1))
+                    print(f"[CivitAI Browser EX] - HTTP {e.response.status_code} Error (attempt {attempt}/{max_attempts}). Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+            
+            print(f"HTTP Error {e.response.status_code}: {e}")
+            return 'error'
 
         response.raise_for_status()
         response.encoding = 'utf-8'
