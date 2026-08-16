@@ -640,7 +640,7 @@ def save_preview(file_path, api_response, overwrite_toggle=False, sha256=None):
                     for image in version['images']:
                         if image['type'] == 'image':
                             url_with_width = re.sub(r'/width=\d+', f"/width={image['width']}", image['url'])
-                            response = requests.get(url_with_width, proxies=proxies, verify=ssl)
+                            response = _api.requests_get_with_retry(url_with_width, proxies=proxies, verify=ssl)
 
                             if response.status_code == 200:
                                 # Check if resize is enabled for saved previews
@@ -1270,7 +1270,7 @@ def save_model_info(install_path, file_name, sub_folder, sha256=None, preview_ht
                     by_hash_url = f"https://civitai.com/api/v1/model-versions/by-hash/{normalized}"
                     headers = _api.get_headers()
                     proxies, ssl_verify = _api.get_proxies()
-                    resp = requests.get(by_hash_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl_verify)
+                    resp = _api.requests_get_with_retry(by_hash_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl_verify)
                     if resp.status_code == 200:
                         data = resp.json()
                         if 'error' not in data:
@@ -1403,7 +1403,7 @@ def get_models(file_path, gen_hash=None):
     proxies, ssl = _api.get_proxies()
     try:
         if not modelId or not modelVersionId:
-            response = requests.get(by_hash, timeout=(60, 30), proxies=proxies, verify=ssl)
+            response = _api.requests_get_with_retry(by_hash, timeout=(60, 30), proxies=proxies, verify=ssl)
             if response.status_code == 200:
                 api_response = response.json()
                 if 'error' in api_response:
@@ -1808,7 +1808,7 @@ def file_scan(folders, tag_finish, ver_finish, installed_finish, preview_finish,
     if not from_installed:
         model_chunks = list(chunks(all_model_ids, 500))
 
-        base_url = "https://civitai.com/api/v1/models?limit=100&nsfw=true"
+        base_url = "https://civitai.com/api/v1/models?limit=50&nsfw=true"
         url_list = [f"{base_url}{''.join(chunk)}" for chunk in model_chunks]
 
         url_count = len(all_model_ids) // 100
@@ -1821,7 +1821,7 @@ def file_scan(folders, tag_finish, ver_finish, installed_finish, preview_finish,
                 try:
                     if progress != None:
                         progress(url_done / url_count, desc=f"Sending API request... {url_done}/{url_count}")
-                    response = requests.get(url, timeout=(60, 30), proxies=proxies, verify=ssl)
+                    response = _api.requests_get_with_retry(url, timeout=(60, 30), proxies=proxies, verify=ssl)
                     if response.status_code == 200:
                         api_response_json = response.json()
                         all_items.extend(api_response_json['items'])
@@ -1912,7 +1912,7 @@ def file_scan(folders, tag_finish, ver_finish, installed_finish, preview_finish,
 
     model_chunks = list(chunks(all_model_ids, tile_count))
 
-    base_url = "https://civitai.com/api/v1/models?limit=100&nsfw=true"
+    base_url = "https://civitai.com/api/v1/models?limit=50&nsfw=true"
     gl.url_list = {i + 1: f"{base_url}{''.join(chunk)}" for i, chunk in enumerate(model_chunks)}
 
     ## === ANXETY EDITs ===
@@ -2296,7 +2296,7 @@ def _fetch_api_info_by_hash(file_path, api_info_file):
     try:
         headers = _api.get_headers()
         proxies, ssl = _api.get_proxies()
-        response = requests.get(api_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl)
+        response = _api.requests_get_with_retry(api_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl)
 
         if response.status_code == 200:
             data = response.json()

@@ -631,7 +631,7 @@ def _search_by_sha256(sha256_hash):
     proxies, ssl = get_proxies()
 
     try:
-        response = requests.get(api_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl)
+        response = requests_get_with_retry(api_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl)
 
         if response.status_code == 200:
             data = response.json()
@@ -644,7 +644,7 @@ def _search_by_sha256(sha256_hash):
                 return 'not_found'
 
             model_url = f"https://civitai.com/api/v1/models/{model_id}"
-            model_response = requests.get(model_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl)
+            model_response = requests_get_with_retry(model_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl)
 
             if model_response.status_code == 200:
                 model_data = model_response.json()
@@ -680,7 +680,13 @@ def create_api_url(content_type=None, sort_type=None, period_type=None, use_sear
         debug_print(api_url)
         return api_url
 
-    params = {'limit': tile_count, 'sort': sort_type, 'period': period_type.replace(' ', '') if period_type else None}
+    # Cap tile_count to 50 to avoid overloading CivitAI servers
+    try:
+        limit_val = min(int(tile_count), 50) if tile_count else 50
+    except (ValueError, TypeError):
+        limit_val = 50
+
+    params = {'limit': limit_val, 'sort': sort_type, 'period': period_type.replace(' ', '') if period_type else None}
 
     if content_type:
         params['types'] = content_type
@@ -998,7 +1004,7 @@ def fetch_and_process_image(image_url):
     try:
         parsed_url = urllib.parse.urlparse(image_url)
         if parsed_url.scheme and parsed_url.netloc:
-            response = requests.get(image_url, proxies=proxies, verify=ssl)
+            response = requests_get_with_retry(image_url, proxies=proxies, verify=ssl)
             if response.status_code == 200:
                 image = Image.open(BytesIO(response.content))
                 geninfo, _ = read_info_from_image(image)
@@ -1797,72 +1803,83 @@ def get_headers(referer=None, no_api=None):
 
     return headers
 
+def requests_get_with_retry(url, max_attempts=4, base_backoff_seconds=2, **kwargs):
+    """Wrapper for requests.get with exponential backoff for 429 and 5xx errors."""
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = requests.get(url, **kwargs)
+            if response.status_code in [429, 502, 503, 504] and attempt < max_attempts:
+                retry_after = response.headers.get('retry-after')
+                if retry_after:
+                    try:
+                        wait_time = int(retry_after)
+                    except ValueError:
+                        wait_time = base_backoff_seconds * (2 ** (attempt - 1))
+                else:
+                    wait_time = base_backoff_seconds * (2 ** (attempt - 1))
+                print(f"[CivitAI Browser Ex] API overloaded (HTTP {response.status_code}). Retrying in {wait_time}s... (attempt {attempt}/{max_attempts})")
+                time.sleep(wait_time)
+                continue
+            return response
+        except requests.exceptions.RequestException as e:
+            if attempt < max_attempts:
+                wait_time = base_backoff_seconds * (2 ** (attempt - 1))
+                print(f"[CivitAI Browser Ex] Request error: {e}. Retrying in {wait_time}s... (attempt {attempt}/{max_attempts})")
+                time.sleep(wait_time)
+                continue
+            raise e
+    return response
+
 def request_civit_api(api_url=None, skip_error_check=False):
     headers = get_headers()
     proxies, ssl = get_proxies()
-    max_attempts = 3
-    base_backoff_seconds = 2
+    
+    try:
+        response = requests_get_with_retry(api_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl)
+        if not response.text or response.text.strip() == '':
+            print(f"CivitAI API returned empty response for: {api_url}")
+            return 'error'
 
-    for attempt in range(1, max_attempts + 1):
-        try:
-            response = requests.get(api_url, headers=headers, timeout=(60, 30), proxies=proxies, verify=ssl)
-            if not response.text or response.text.strip() == '':
-                print(f"CivitAI API returned empty response for: {api_url}")
-                return 'error'
-
-            if skip_error_check:
-                response.encoding = 'utf-8'
-                try:
-                    data = json.loads(response.text)
-                    return data
-                except json.JSONDecodeError as e:
-                    print(f"CivitAI API: JSON decode error - {e}")
-                    return 'error'
-
-            response.raise_for_status()
+        if skip_error_check:
             response.encoding = 'utf-8'
             try:
                 data = json.loads(response.text)
-            except json.JSONDecodeError:
-                print(response.text)
-                print('The CivitAI servers are currently offline. Please try again later.')
-                return 'offline'
-            return data
+                return data
+            except json.JSONDecodeError as e:
+                print(f"CivitAI API: JSON decode error - {e}")
+                return 'error'
 
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                print(f"Model version not found (404): {api_url}")
-                return 'not_found'
-            print(f"HTTP Error {e.response.status_code}: {e}")
-            return 'error'
+        response.raise_for_status()
+        response.encoding = 'utf-8'
+        try:
+            data = json.loads(response.text)
+        except json.JSONDecodeError:
+            print(response.text)
+            print('The CivitAI servers are currently offline. Please try again later.')
+            return 'offline'
+        return data
 
-        except requests.exceptions.Timeout:
-            if attempt < max_attempts:
-                wait_time = base_backoff_seconds * attempt
-                print(f"Request timed out (attempt {attempt}/{max_attempts}). Retrying in {wait_time}s...")
-                time.sleep(wait_time)
-                continue
-            print('The request timed out. Please try again later.')
-            return 'timeout'
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            print(f"Model version not found (404): {api_url}")
+            return 'not_found'
+        print(f"HTTP Error {e.response.status_code}: {e}")
+        return 'error'
 
-        except requests.exceptions.RequestException as e:
-            error_text = str(e)
-            dns_resolution_error = (
-                'NameResolutionError' in error_text
-                or 'Failed to resolve' in error_text
-                or 'Temporary failure in name resolution' in error_text
-                or ('Max retries exceeded' in error_text and 'NameResolutionError' in error_text)
-                or ('Max retries exceeded' in error_text and 'Failed to resolve' in error_text)
-            )
+    except requests.exceptions.Timeout:
+        print('The request timed out. Please try again later.')
+        return 'timeout'
 
-            if dns_resolution_error and attempt < max_attempts:
-                wait_time = base_backoff_seconds * attempt
-                print(f"[CivitAI Browser Ex] - DNS resolution failed (attempt {attempt}/{max_attempts}). Retrying in {wait_time}s...")
-                time.sleep(wait_time)
-                continue
+    except requests.exceptions.RequestException as e:
+        error_text = str(e)
+        dns_resolution_error = (
+            'NameResolutionError' in error_text
+            or 'Failed to resolve' in error_text
+            or 'Temporary failure in name resolution' in error_text
+        )
 
-            print(f"[CivitAI Browser Ex] - Error: {e}")
-            if dns_resolution_error:
+        print(f"[CivitAI Browser Ex] - Error: {e}")
+        if dns_resolution_error:
                 print(f"[CivitAI Browser Ex] - DNS resolution failed (attempt {max_attempts}/{max_attempts}). No more retries.")
                 return 'dns_error'
             return 'error'

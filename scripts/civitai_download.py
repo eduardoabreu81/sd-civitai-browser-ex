@@ -533,7 +533,7 @@ def get_download_link(url, model_id):
     headers = _api.get_headers(model_id)
     proxies, ssl = _api.get_proxies()
 
-    response = requests.get(url, headers=headers, allow_redirects=False, proxies=proxies, verify=ssl)
+    response = _api.requests_get_with_retry(url, headers=headers, allow_redirects=False, proxies=proxies, verify=ssl)
 
     if 300 <= response.status_code <= 308:
         if 'login?returnUrl' in response.text and 'reason=download-auth' in response.text:
@@ -782,7 +782,7 @@ def download_file_old(url, file_path, model_id, progress=gr.Progress() if queue 
                                 if progress != None:
                                     progress(0, desc='Download cancelled.')
                                 return
-                            response = requests.get(download_link, headers=headers, stream=True, timeout=10, proxies=proxies, verify=ssl)
+                            response = _api.requests_get_with_retry(download_link, headers=headers, stream=True, timeout=10, proxies=proxies, verify=ssl)
                             if response.status_code == 404:
                                 if progress != None:
                                     progress(0, desc=f"Encountered an error during download of: {file_name_display}, file is not found on CivitAI servers.")
