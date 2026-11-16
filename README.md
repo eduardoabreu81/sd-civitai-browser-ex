@@ -36,8 +36,9 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 - **No raw placeholders when you switch files** — picking another file of a model no longer shows `{BASEMODEL}`/`{AUTHOR}` literally in the install path.
 - **Odd version names saved correctly** — names such as `v1.5?` no longer leave characters Windows rejects in the filename, and trailing dots no longer make the saved path differ from the one on disk.
 - **Auto-organize survives a file switch** — with auto-organization on, picking another file of a model you have not installed keeps its base-model folder (e.g. `Lora/SDXL/`) instead of falling back to the type root. Wildcards now show the same folder in the panel as the one they are actually downloaded to.
+- **Aria2 stays off when you turn it off** — with **Download models using Aria2** turned off in the settings, the Aria2 RPC server is no longer started with the WebUI; downloads use the built-in downloader.
 
-Thanks to [kumapo0313](https://github.com/kumapo0313) for the first three fixes.
+Thanks to [kumapo0313](https://github.com/kumapo0313) for the first three fixes and to [LastStardaughter](https://github.com/LastStardaughter) for the Aria2 fix.
 
 ### v0.4.2-ex — Download Fix
 
@@ -68,6 +69,7 @@ Thanks to [kumapo0313](https://github.com/kumapo0313) for the first three fixes.
 - `cleaned_name` also strips illegal characters from the `splitext` extension part and, on Windows, trailing dots/spaces — contributed by kumapo0313.
 - `update_file_info` resolves default-subfolder placeholders through `convertCustomFolder` (`_converted_default_subfolder`) — contributed by kumapo0313.
 - `update_file_info` applies the auto-organize base-model folder; the rule is now the shared `_auto_organize_subfolder`, which also honors the wildcard organize option like the download does.
+- `start_aria2_rpc` returns early when `use_aria2` is off, so the RPC server is not launched at startup — contributed by LastStardaughter.
 
 ### v0.4.2-ex — Download Fix
 - Added missing `version_id` parameter to `create_model_item`.
@@ -161,7 +163,7 @@ Thanks to [kumapo0313](https://github.com/kumapo0313) for the first three fixes.
 ### v0.4.2-ex — Download Fix *(complete)* ✅
 
 ### v0.4.3-ex — Correct Install Paths *(current)*
-- LoCon/DoRA default subfolder, placeholder and filename fixes, auto-organize on file switch
+- LoCon/DoRA default subfolder, placeholder and filename fixes, auto-organize on file switch, Aria2 off when disabled
 
 ### v0.5.0-ex — Extended Features *(planned)*
 - Saved search presets
@@ -246,7 +248,7 @@ Thanks to [kumapo0313](https://github.com/kumapo0313) for the first three fixes.
 - **[sd-civitai-browser-plus](https://github.com/anxety-solo/sd-civitai-browser-plus)** by anxety-solo — UI redesign and quality improvements
 - **[sd-webui-civbrowser](https://github.com/SignalFlagZ/sd-webui-civbrowser)** by SignalFlagZ — creator management inspiration
 - **[Forge Classic](https://github.com/Haoming02/sd-webui-forge-classic/)** by Haoming02
-- **Contributors** — [kumapo0313](https://github.com/kumapo0313) (LoCon/DoRA subfolders, filename and install-path fixes)
+- **Contributors** — [kumapo0313](https://github.com/kumapo0313) (LoCon/DoRA subfolders, filename and install-path fixes), [LastStardaughter](https://github.com/LastStardaughter) (Aria2 off when disabled)
 
 ---
 
