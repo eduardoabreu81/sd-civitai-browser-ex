@@ -24,6 +24,9 @@ import scripts.civitai_file_manage as _file
 import scripts.civitai_global as gl
 from scripts.civitai_global import print, debug_print
 
+# LoCon and DoRA share the LoRA folder and its settings.
+LORA_CONTENT_TYPES = frozenset({'LORA', 'LoCon', 'DoRA'})
+
 
 gl.init()
 
@@ -1099,6 +1102,11 @@ def cleaned_name(file_name):
     name, extension = os.path.splitext(file_name)
     clean_name = re.sub(illegal_chars_pattern, '', name)
     clean_name = re.sub(r'\s+', ' ', clean_name.strip())
+    # splitext treats everything after the last dot as the extension, so a
+    # version name like 'v1.5?' yields ext '.5?' — clean it as well.
+    extension = re.sub(illegal_chars_pattern, '', extension)
+    if not extension.strip('. '):
+        extension = ''
 
     # Limit to 246 bytes (UTF-8) to avoid filesystem limits on Linux (ext4 max: 255 bytes)
     # Reserve bytes for the extension
@@ -1108,7 +1116,12 @@ def cleaned_name(file_name):
     if len(name_encoded) > max_name_bytes:
         clean_name = name_encoded[:max_name_bytes].decode('utf-8', errors='ignore').rstrip()
 
-    return f"{clean_name}{extension}"
+    result = f"{clean_name}{extension}"
+    if platform.system() == "Windows":
+        # Windows silently drops trailing dots and spaces, so the path we build
+        # would not match the one actually created on disk.
+        result = result.rstrip('. ')
+    return result
 
 def fetch_and_process_image(image_url):
     proxies, ssl = get_proxies()
@@ -1184,7 +1197,7 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
             if int(item['id']) == int(model_id):
                 is_local_only = bool(item.get('local_only'))
                 content_type = item['type']
-                if content_type == 'LORA':
+                if content_type in LORA_CONTENT_TYPES:
                     is_LORA = True
                 desc = item['description']
 
@@ -1713,24 +1726,12 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
             if folder_location != 'None':
                 break
 
-        # Check if auto-organization is enabled
-        auto_organize = getattr(opts, 'civitai_neo_auto_organize', False)
-        
-        if auto_organize and output_basemodel and folder_location == 'None':
-            # Use auto-organization: determine folder from baseModel
-            from scripts.civitai_file_manage import normalize_base_model
-            base_folder = normalize_base_model(output_basemodel)
-            
-            if base_folder:
-                # Create subfolder path for organized download
-                if not base_folder.startswith(os.sep):
-                    base_folder = os.sep + base_folder
-                folder_path = str(model_folder) + base_folder
-                default_subfolder = base_folder
-            else:
-                # No folder (user disabled "Other" folder and model is unrecognized)
-                folder_path = str(model_folder)
-                default_subfolder = 'None'
+        auto_subfolder = (_auto_organize_subfolder(content_type, model_folder, output_basemodel)
+                          if folder_location == 'None' else None)
+        if auto_subfolder is not None:
+            # Auto-organization: the subfolder comes from the baseModel
+            default_subfolder = auto_subfolder
+            folder_path = str(model_folder) + (auto_subfolder if auto_subfolder != 'None' else '')
         else:
             # Original behavior: use custom subfolders or default
             default_subfolder = sub_folder_value(content_type, desc)
@@ -1799,7 +1800,8 @@ def update_model_info(model_string=None, model_version=None, only_html=False, in
         )
 
 def sub_folder_value(content_type, desc=None):
-    if content_type == 'LORA':
+    # LoCon and DoRA share the LoRA folder and its settings; only LORA has a setting.
+    if content_type in LORA_CONTENT_TYPES:
         folder = getattr(opts, 'LORA_default_subfolder', 'None')
     elif content_type == 'Upscaler':
         folder = getattr(opts, 'ESRGAN_default_subfolder', 'None')  # default
@@ -1813,6 +1815,47 @@ def sub_folder_value(content_type, desc=None):
     if folder is None:
         return 'None'
     return folder
+
+def _converted_default_subfolder(content_type, desc, item, version):
+    """Default subfolder with {BASEMODEL}/{AUTHOR}/... filled in, or 'None'.
+
+    Mirrors what update_model_info() passes to convertCustomFolder, so changing
+    the selected file does not show the raw placeholders in the install path.
+    """
+    default_sub = sub_folder_value(content_type, desc)
+    if default_sub == 'None':
+        return default_sub
+    creator = item.get('creator') or {}
+    uploader = creator.get('username') or 'User not found'
+    return _file.convertCustomFolder(
+        default_sub, version.get('baseModel') or '', is_model_nsfw(item), uploader,
+        item.get('name'), item.get('id'), version.get('name'), version.get('id'))
+
+
+def _auto_organize_subfolder(content_type, model_folder, base_model):
+    """Base-model subfolder for a not-yet-installed model when auto-organize applies.
+
+    Returns '/<Family>' (e.g. '/SDXL'), 'None' when the model belongs in the type
+    root (unrecognized baseModel with the "Other" folder disabled), or None when
+    auto-organization does not apply and the default-subfolder setting rules.
+    Shared by update_model_info() and update_file_info() so picking another file
+    does not drop the base-model subfolder, and wildcards follow the same rule as
+    the download itself.
+    """
+    if not getattr(opts, 'civitai_neo_auto_organize', False) or not base_model:
+        return None
+    # Detect wildcards by content_type OR by resolved folder path (double protection
+    # in case content_type is None or uses an unexpected casing/variant)
+    is_wildcard_path = (content_type == 'Wildcards') or ('wildcard' in str(model_folder).lower())
+    if is_wildcard_path and not getattr(opts, 'civitai_neo_wildcard_organize_by_base', False):
+        return None
+    base_folder = _file.normalize_base_model(base_model)
+    if not base_folder:
+        return 'None'
+    if not base_folder.startswith(os.sep):
+        base_folder = os.sep + base_folder
+    return base_folder
+
 
 def update_file_info(model_string, model_version, file_metadata):
     file_list = []
@@ -1828,7 +1871,7 @@ def update_file_info(model_string, model_version, file_metadata):
         for item in gl.json_data['items']:
             if int(item['id']) == int(model_id):
                 content_type = item['type']
-                if content_type == 'LORA':
+                if content_type in LORA_CONTENT_TYPES:
                     is_LORA = True
                 desc = item['description']
                 for model in item['modelVersions']:
@@ -1886,8 +1929,13 @@ def update_file_info(model_string, model_version, file_metadata):
                                                             break
                                                     except Exception as e:
                                                         print(f"Error decoding JSON: {str(e)}")
-                                default_sub = sub_folder_value(content_type, desc)
+                                default_sub = _converted_default_subfolder(content_type, desc, item, model)
                                 if folder_location == 'None':
+                                    # Same auto-organize rule as update_model_info(), or picking
+                                    # another file would drop the base-model subfolder.
+                                    auto_sub = _auto_organize_subfolder(content_type, model_folder, model.get('baseModel'))
+                                    if auto_sub is not None:
+                                        default_sub = auto_sub
                                     folder_location = model_folder
                                     if default_sub != 'None':
                                         folder_path = str(folder_location) + default_sub
