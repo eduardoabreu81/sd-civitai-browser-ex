@@ -30,6 +30,15 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ## 🆕 What's New
 
+### v0.4.3-ex — Correct Install Paths
+
+- **LoCon and DoRA follow the LoRA default subfolder** — they share the LoRA folder, but used to ignore its default-subfolder setting.
+- **No raw placeholders when you switch files** — picking another file of a model no longer shows `{BASEMODEL}`/`{AUTHOR}` literally in the install path.
+- **Odd version names saved correctly** — names such as `v1.5?` no longer leave characters Windows rejects in the filename, and trailing dots no longer make the saved path differ from the one on disk.
+- **Auto-organize survives a file switch** — with auto-organization on, picking another file of a model you have not installed keeps its base-model folder (e.g. `Lora/SDXL/`) instead of falling back to the type root. Wildcards now show the same folder in the panel as the one they are actually downloaded to.
+
+Thanks to [kumapo0313](https://github.com/kumapo0313) for the first three fixes.
+
 ### v0.4.2-ex — Download Fix
 
 - **Fixed broken single and multi downloads** — `create_model_item` was missing the `version_id` parameter, causing downloads to fail silently. The parameter is now accepted and correctly resolved from model metadata before enqueuing.
@@ -53,6 +62,12 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 ---
 
 ## 📖 Changelog
+
+### v0.4.3-ex — Correct Install Paths
+- `sub_folder_value`, `update_model_info` and `update_file_info` treat LoCon and DoRA as LoRA (`LORA_CONTENT_TYPES`) — contributed by kumapo0313.
+- `cleaned_name` also strips illegal characters from the `splitext` extension part and, on Windows, trailing dots/spaces — contributed by kumapo0313.
+- `update_file_info` resolves default-subfolder placeholders through `convertCustomFolder` (`_converted_default_subfolder`) — contributed by kumapo0313.
+- `update_file_info` applies the auto-organize base-model folder; the rule is now the shared `_auto_organize_subfolder`, which also honors the wildcard organize option like the download does.
 
 ### v0.4.2-ex — Download Fix
 - Added missing `version_id` parameter to `create_model_item`.
@@ -141,8 +156,12 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 
 ### v0.4.0-ex — Download Reliability & Update Mode Improvements *(complete)* ✅
 
-### v0.4.1-ex — Exact Search Fix *(current)*
-- Exact search restricted to Model name only — CivitAI API does not support quoted search for Tag or User name
+### v0.4.1-ex — Exact Search Fix *(complete)* ✅
+
+### v0.4.2-ex — Download Fix *(complete)* ✅
+
+### v0.4.3-ex — Correct Install Paths *(current)*
+- LoCon/DoRA default subfolder, placeholder and filename fixes, auto-organize on file switch
 
 ### v0.5.0-ex — Extended Features *(planned)*
 - Saved search presets
@@ -227,6 +246,7 @@ Browse, download, and manage your CivitAI models directly inside the WebUI — w
 - **[sd-civitai-browser-plus](https://github.com/anxety-solo/sd-civitai-browser-plus)** by anxety-solo — UI redesign and quality improvements
 - **[sd-webui-civbrowser](https://github.com/SignalFlagZ/sd-webui-civbrowser)** by SignalFlagZ — creator management inspiration
 - **[Forge Classic](https://github.com/Haoming02/sd-webui-forge-classic/)** by Haoming02
+- **Contributors** — [kumapo0313](https://github.com/kumapo0313) (LoCon/DoRA subfolders, filename and install-path fixes)
 
 ---
 
